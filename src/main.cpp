@@ -35,10 +35,11 @@ int main() {
 
   std::replace(code.begin(), code.end(), ';', '\n');
 
-  std::cout << code << std::endl;
-  std::cout << "\n// nstripes: " << decoder.stripes.size() << std::endl;
+  // std::cout << code << std::endl;
+  // std::cout << "\n// nstripes: " << decoder.stripes.size() << std::endl;
 
   Assembler assm;
   auto exec = assm.assemble(code.c_str());
+  // std::cout << exec.ptr() << std::endl;
   exec.invoke(memory);
 }

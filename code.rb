@@ -29,4 +29,13 @@ let :write_buf_size do
   mov R1, BUF
   mov R2, SIZE
   syscall()
+  jmp :exit
+end
+
+let :exit do
+  # R8 - 1
+  # R0 - exit code
+  mov R8, ONE
+  mov R0, ONE
+  syscall()
 end

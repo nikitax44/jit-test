@@ -64,7 +64,7 @@ struct Insn_D : Insn {
   Insn_D(uint32_t bits)
       : opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), rd(bits >> 11),
         zero(bits >> 6), func(bits) {}
-  std::string transpile(size_t PC) const override { return "int3;"; }
+  std::string transpile(size_t PC) const override;
 };
 
 struct Insn_E : Insn {
@@ -86,7 +86,7 @@ struct Insn_SYSCALL : Insn {
   unsigned func : 6 = 0b011001;
   Insn_SYSCALL(uint32_t bits)
       : opcode(bits >> 26), code(bits >> 6), func(bits) {}
-  std::string transpile(size_t PC) const override { return "int3;"; }
+  std::string transpile(size_t PC) const override;
 };
 
 struct Insn_J : Insn {

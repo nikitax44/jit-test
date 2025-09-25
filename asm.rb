@@ -2,7 +2,7 @@ $out = File.open('/tmp/code.bin', "wb+")
 $pc = 0
 $labels = {}
 $patchup = {}
-$verbose = true
+$verbose = false
 
 def emit(opcode, payload)
   bits = (opcode << 26) | (payload&0x3ffffff)
@@ -134,13 +134,23 @@ def st(rt, offset, base)
   emit(0b100101, (base << 21) | (rt << 16) | (offset & 0xffff))
 end
 
+def ud2()
+  if $verbose
+    puts "ud2"
+  end
+  emit(0,0)
+end
+
+
 def let(name, &block)
   if $verbose
     puts [name, ":"].join('')
   end
   $labels[name]=$pc
   block.call()
-  puts()
+  if $verbose
+    puts()
+  end
 end
 
 require_relative "code.rb"
