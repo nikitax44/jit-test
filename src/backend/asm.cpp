@@ -21,6 +21,10 @@ Code Assembler::assemble(const char *code) {
     throw std::runtime_error(std::string("Failed to assemble: ") +
                              ks_strerror(ks_errno(ks)));
   }
+  if (size == 0) {
+    throw std::runtime_error("Failed to assemble(empty result): ");
+  }
+
   void *mem = static_cast<unsigned char *>(
       mmap(0, size, PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0));
   if (mem == MAP_FAILED) {

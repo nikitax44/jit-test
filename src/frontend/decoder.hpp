@@ -1,3 +1,4 @@
+#pragma once
 #include "instruction.hpp"
 #include <cassert>
 #include <cstddef>
@@ -10,8 +11,9 @@ struct Stripe {
 };
 
 class StripeDecoder {
+public:
   std::map<size_t, size_t> stripes;
-  const Insn *code;
+  const uint32_t *code;
   size_t size;
 
   struct Result {
@@ -36,7 +38,13 @@ class StripeDecoder {
     stripes.emplace(stripe.start, stripe.end);
   }
 
+  std::unique_ptr<Insn> at(size_t ip) {
+    return Insn::decode_insn(this->code[ip]);
+  }
+
 public:
+  StripeDecoder(const uint32_t *code, size_t size) : code(code), size(size) {}
+
   // O(log n)
   Result get(size_t pos) const {
     if (stripes.empty()) {
@@ -54,6 +62,7 @@ public:
     return {0, it, false};
   }
 
+  // TODO: remove triple-decoding of the instruction
   void traverse(size_t start) {
     // go through the code starting from the
     // the problem is: the branch might always/never be taken and then we will
@@ -62,6 +71,8 @@ public:
     // assume that this case does not occur
 
     // algorithm: go through stripe until the branch. if
+    if (start > this->size)
+      return;
 
     auto res = this->get(start);
     if (res.is_inside)
@@ -71,7 +82,7 @@ public:
             ? Stripe{res.following_stripe->first, res.following_stripe->second}
             : Stripe{size, size - 1};
     size_t ip = start;
-    for (; ip != next.start && !this->code[ip].is_branch(); ++ip) {
+    for (; ip != next.start && !this->at(ip)->is_branch(); ++ip) {
       // do nothing, go on
     }
 
@@ -84,13 +95,13 @@ public:
     // found a new branch
     this->add_stripe({start, ip}, res);
 
-    if (this->code[ip].branch_can_fallthrough()) {
+    if (this->at(ip)->branch_can_fallthrough()) {
       traverse(ip + 1);
     }
 
-    std::optional<size_t> jump_dest = this->code[ip].jump_dest();
+    std::optional<size_t> jump_dest = this->at(ip)->jump_dest(ip << 2);
     if (jump_dest.has_value()) {
-      traverse(jump_dest.value());
+      traverse(jump_dest.value() >> 2);
     } else {
       // cannot determine where jump destination is
     }
@@ -99,5 +110,21 @@ public:
   void traverse() {
     // entry point is at the start
     this->traverse(0);
+  }
+
+  std::string compile() {
+    this->traverse();
+    std::string out = "";
+    for (const auto &stripe : this->stripes) {
+      for (size_t PC = stripe.first * 4; PC <= stripe.second * 4; PC += 4) {
+        out += "\naddr_";
+        out += std::to_string(PC);
+        out += ":\n";
+
+        auto insn = this->at(PC / 4);
+        out += insn->transpile(PC);
+      }
+    }
+    return out;
   }
 };

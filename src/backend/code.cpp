@@ -2,8 +2,8 @@
 #include <cstdint>
 #include <sys/mman.h>
 
-uint64_t Code::invoke() {
-  typedef uint64_t (*fn)(void);
-  return ((fn)this->mem)();
+uint64_t Code::invoke(void *mem) {
+  typedef uint64_t (*fn)(void *);
+  return ((fn)this->mem)(mem);
 }
 Code::~Code() { munmap(this->mem, this->size); }

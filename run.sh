@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+set -e
 cat >build.ninja <<'EOF'
 rule cxx
-  command = g++ -MMD -MF $out.d -c $in -o $out $cflags
+  command = g++ -std=c++20 -MMD -MF $out.d -c $in -o $out $cflags
   depfile = $out.d
   deps = gcc
   description = CXX $out

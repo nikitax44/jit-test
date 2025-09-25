@@ -9,6 +9,6 @@ class Code {
   friend class Assembler;
 
 public:
-  uint64_t invoke();
+  uint64_t invoke(void *mem);
   ~Code();
 };

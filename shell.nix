@@ -3,5 +3,6 @@ pkgs.mkShell {
   packages = [
     pkgs.keystone
     pkgs.ninja
+    pkgs.ruby
   ];
 }
