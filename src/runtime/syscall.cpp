@@ -44,6 +44,9 @@ void syscall_impl(uint32_t *buf) {
   case 4:
     buf[0] = write(buf[0], &memory[buf[1]], buf[2]);
     break;
+  case 99:
+    std::cout << buf[0] << std::endl;
+    break;
   default:
     std::cerr << "invalid syscall " << buf[8] << " was invoked" << std::endl;
     std::exit(42);
