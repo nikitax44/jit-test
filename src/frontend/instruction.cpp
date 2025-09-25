@@ -64,7 +64,7 @@ std::string Insn_A::transpile(size_t PC) const {
     // BEQ
     size_t target = this->jump_dest(PC).value();
     return std::format("mov eax, [rdi+4*{}];"
-                       "mov ecx, [rdi+4*{}];"
+                       "mov edx, [rdi+4*{}];"
                        "cmp eax, edx;"
                        "jz addr_{};",
                        this->rs, this->rt, target);

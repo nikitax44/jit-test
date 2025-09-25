@@ -24,4 +24,6 @@ echo build build/main : ld "${objs[@]}" >>build.ninja
 
 ninja
 
+ruby asm.rb
+
 ./build/main "$@"

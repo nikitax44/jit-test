@@ -38,7 +38,7 @@ def beq(rs, rt, label)
   end
 
   addr = $labels[label]
-  if addr !=nil
+  if addr != nil
     diff = (addr-$pc)>>2
     emit(0b010011, (rs << 21) | (rt << 16) | (diff & 0xffff))
   else
@@ -141,6 +141,12 @@ def ud2()
   emit(0,0)
 end
 
+def int3()
+  if $verbose
+    puts "int3"
+  end
+  emit(0,1)
+end
 
 def let(name, &block)
   if $verbose
@@ -157,9 +163,9 @@ require_relative "code.rb"
 
 $verbose  = false
 
-$patchup.map {|ip, block|
-  $ip=ip
-  $out.seek(ip, IO::SEEK_SET)
+$patchup.map {|pc, block|
+  $pc=pc
+  $out.seek(pc, IO::SEEK_SET)
   block.call
 }
 $out.close()

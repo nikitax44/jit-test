@@ -9,7 +9,7 @@
 
 static char memory[4096];
 
-int main() {
+int main(int argc, char **) {
 
   // auto code = assm.assemble(
   //     // start
@@ -35,8 +35,10 @@ int main() {
 
   std::replace(code.begin(), code.end(), ';', '\n');
 
-  // std::cout << code << std::endl;
-  // std::cout << "\n// nstripes: " << decoder.stripes.size() << std::endl;
+  if (argc > 1) {
+    std::cout << code << std::endl;
+    std::cout << "\n// nstripes: " << decoder.stripes.size() << std::endl;
+  }
 
   Assembler assm;
   auto exec = assm.assemble(code.c_str());

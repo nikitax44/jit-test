@@ -108,5 +108,9 @@ struct Insn_J : Insn {
 struct Insn_ILLEGAL : Insn {
   unsigned bits : 32;
   Insn_ILLEGAL(uint32_t bits) : bits(bits) {}
-  std::string transpile(size_t PC) const override { return "ud2;"; }
+  std::string transpile(size_t PC) const override {
+    if (bits == 1)
+      return "int3";
+    return "ud2;";
+  }
 };

@@ -16,7 +16,7 @@ let :setup1 do
 end
 
 def mov(rd, rs)
-  movz rd, rs, ZERO
+  rori rd, rs, 0
 end
 
 def inc(rd)
@@ -40,7 +40,7 @@ def movc(rd, val32)
   ones = ones_positions_int32 val32
 
   if ones.size == 0
-    mov rd, zero
+    mov rd, ZERO
     return
   end
 
@@ -74,4 +74,9 @@ end
 def pop(rd)
   sub SP, SP, FOUR
   ld rs, 0, SP
+end
+
+def debug()
+  movc R8, 0
+  syscall()
 end
