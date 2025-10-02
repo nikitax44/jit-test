@@ -1,5 +1,5 @@
 #include "code.hpp"
-// #include <iostream>
+#include <format>
 
 void Code::run(void *mem) {
   Addr PC = 0;
@@ -16,19 +16,20 @@ void Code::run(void *mem) {
 }
 
 std::unique_ptr<Stripe> Code::decode(Addr start) const {
-  if (start > this->insns.size() * 4) {
-    throw std::runtime_error("Code execution out of bounds");
+  if (start / 4 >= this->insns.size()) {
+    throw std::runtime_error(std::format(
+        "Code execution out of bounds: start={}, this->insns.size()*4={}",
+        start, this->insns.size() * 4));
   }
 
-  Addr ip = start;
+  size_t ip = start / 4;
 
-  for (; ip != (this->insns.size() - 1) * 4 && !insns[ip / 4].is_branch();
-       ip += 4) {
+  for (; ip != this->insns.size() - 1 && !insns[ip].is_branch(); ++ip) {
     // do nothing, go on
   }
 
   std::unique_ptr<Stripe> stripe =
-      std::make_unique<Stripe>(insns.data(), start, ip);
+      std::make_unique<Stripe>(insns, start, ip * 4);
   return stripe;
 }
 

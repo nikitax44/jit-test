@@ -19,10 +19,6 @@ def mov(rd, rs)
   rori rd, rs, 0
 end
 
-def nop()
-  mov(ZERO, ZERO)
-end
-
 def inc(rd)
   add rd, rd, ONE
 end

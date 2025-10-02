@@ -1,10 +1,13 @@
 #include "stripe.hpp"
 #include "types.hpp"
 #include <asmjit/core/operand.h>
+#include <cassert>
+#include <span>
 #include <stdexcept>
 
-Stripe::Stripe(const InsnWrap *insns, Addr start_PC, Addr end_PC)
+Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
     : PC2offset(), start_PC(start_PC), end_PC(end_PC), rt() {
+  assert(end_PC / 4 < insns.size());
   auto branch = insns[end_PC / 4];
   this->const_next = branch.const_jump(end_PC);
 
@@ -12,9 +15,10 @@ Stripe::Stripe(const InsnWrap *insns, Addr start_PC, Addr end_PC)
   code.init(rt.environment(), rt.cpuFeatures());
 
   asmjit::x86::Assembler a(&code);
+  PC2offset.resize((end_PC - start_PC) / 4 + 1);
 
   for (size_t PC = start_PC; PC <= end_PC; PC += 4) {
-    PC2offset.emplace(PC, a.offset());
+    PC2offset[(PC - start_PC) / 4] = a.offset(); // faster than push_back
 
     auto insn = insns[PC / 4];
     insn.transpile(a, PC);
@@ -38,7 +42,9 @@ Stripe::Stripe(const InsnWrap *insns, Addr start_PC, Addr end_PC)
 #endif
 
 Addr Stripe::invoke(Addr PC, void *mem) const {
-  size_t off = this->PC2offset.at(PC);
+  size_t idx = (PC - start_PC) / 4;
+  assert(idx < this->PC2offset.size());
+  size_t off = this->PC2offset[idx];
   Func func = (Func)((size_t)fn + off);
   return func(mem);
 }

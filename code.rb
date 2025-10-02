@@ -16,12 +16,11 @@ let :setup do
   movc B, 1
   # jmp :setup
   #
-  # for i in 0..100_000_000 do
-  #   nop()
-  # end
+  # nop 100_000_000
 end
 
 let :loop do
+  # nop 100_000_000
 
   slti R0, A, 32000
   beq R0, ZERO, :exit

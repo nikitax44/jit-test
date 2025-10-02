@@ -5,6 +5,9 @@ $patchup = {}
 $verbose = false
 
 def emit(opcode, payload)
+  if $verbose
+    puts ['^ ', $pc].join('')
+  end
   bits = (opcode << 26) | (payload&0x3ffffff)
   $out.write([bits].pack("V"))
   $pc+=4
@@ -146,6 +149,21 @@ def int3()
     puts "int3"
   end
   emit(0,1)
+end
+
+def nop(n=1)
+  if $verbose
+    puts ["nop ", n].join('')
+  end
+  bytes = [2].pack("V")
+  bytes1024 = bytes*1024
+  for i in 1..(n/1024) do
+    $out.write(bytes1024)
+  end
+  for i in 1..(n%1024) do
+    $out.write(bytes)
+  end
+  $pc+=4*n
 end
 
 def let(name, &block)

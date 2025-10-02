@@ -181,9 +181,14 @@ struct Insn_ILLEGAL {
   unsigned bits : 32;
   Insn_ILLEGAL(uint32_t bits) : bits(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
-    if (bits == 1) {
+    switch (bits) {
+    case 1:
       a.int3();
-    } else {
+      break;
+    case 2:
+      a.nop();
+      break;
+    default:
       a.ud2();
     }
   }
