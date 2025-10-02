@@ -1,16 +1,23 @@
 #include "stripe.hpp"
+#include "types.hpp"
+#include <asmjit/core/operand.h>
 #include <stdexcept>
 
 Stripe::Stripe(const uint32_t *insns, Addr start_PC, Addr end_PC)
     : PC2offset(), start_PC(start_PC), rt() {
+  auto branch = std::bit_cast<InsnWrap>(insns[end_PC / 4]);
+  this->const_next = branch.const_jump(end_PC);
+
   asmjit::CodeHolder code;
   code.init(rt.environment(), rt.cpuFeatures());
 
   asmjit::x86::Assembler a(&code);
-  for (size_t i = start_PC / 4; i <= end_PC / 4; ++i) {
-    auto insn = std::bit_cast<InsnWrap>(insns[i]);
-    PC2offset.emplace(i * 4, a.offset());
-    insn.transpile(a, i * 4);
+
+  for (size_t PC = start_PC; PC <= end_PC; PC += 4) {
+    PC2offset.emplace(PC, a.offset());
+
+    auto insn = std::bit_cast<InsnWrap>(insns[PC / 4]);
+    insn.transpile(a, PC);
   }
   a.ud2(); // just to be safe
   auto err = rt.add(&fn, &code);

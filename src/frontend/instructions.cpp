@@ -247,3 +247,9 @@ std::optional<Addr> InsnWrap::jump_dest(Addr PC) const {
     return {};
   }
 }
+std::optional<Addr> InsnWrap::const_jump(Addr PC) const {
+  if (opcode() == 0b010110) {
+    return Insn_J(bits).jump_dest(PC);
+  }
+  return {};
+}

@@ -13,6 +13,8 @@ class Stripe {
   Addr start_PC;
   asmjit::JitRuntime rt;
   void *fn;
+  // TODO: store weak_ptrs to two possible destination Stripes
+  std::optional<Addr> const_next;
 
 public:
   Stripe(const Stripe &) = delete;

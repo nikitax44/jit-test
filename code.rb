@@ -14,7 +14,7 @@ let :setup do
 
   movc A, 0
   movc B, 1
-  # jmp :loop
+  # jmp :setup
 end
 
 let :loop do

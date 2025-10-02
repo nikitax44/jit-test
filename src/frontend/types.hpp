@@ -14,6 +14,7 @@ struct InsnWrap {
     // BEQ
     return this->opcode() == 0b010011;
   }
+  std::optional<Addr> const_jump(Addr PC) const;
   std::optional<Addr> jump_dest(Addr PC) const;
   void transpile(asmjit::x86::Assembler &a, Addr PC) const;
 
