@@ -2,7 +2,7 @@
 set -e
 cat >build.ninja <<EOF
 rule cxx
-  command = $CXX -std=c++20 -ggdb -g3 -MMD -MF \$out.d -c \$in -o \$out \$cflags
+  command = $CXX -std=c++20 -O3 -g3 -MMD -MF \$out.d -c \$in -o \$out \$cflags
   depfile = \$out.d
   deps = gcc
   description = CXX \$out

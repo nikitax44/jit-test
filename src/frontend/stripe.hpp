@@ -4,6 +4,7 @@
 #include <asmjit/core/jitruntime.h>
 #include <asmjit/x86/x86assembler.h>
 #include <cstddef>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -28,5 +29,8 @@ public:
   Addr startPC() const { return this->start_PC; }
   Addr endPC() const { return this->end_PC; }
 
+  inline bool contains(Addr PC) const { return start_PC <= PC && PC <= end_PC; }
+
   Addr invoke(Addr PC, void *mem) const;
+  mutable std::optional<std::weak_ptr<Stripe>> next;
 };

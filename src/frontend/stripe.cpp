@@ -2,6 +2,7 @@
 #include "types.hpp"
 #include <asmjit/core/operand.h>
 #include <cassert>
+#include <format>
 #include <span>
 #include <stdexcept>
 
@@ -27,8 +28,8 @@ Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
   auto err = rt.add(&fn, &code);
 
   if (err != asmjit::kErrorOk) {
-    throw std::runtime_error(std::string("Failed to assemble: ") +
-                             asmjit::DebugUtils::errorAsString(err));
+    throw std::runtime_error(std::format(
+        "Failed to assemble: {}", asmjit::DebugUtils::errorAsString(err)));
   }
 }
 
@@ -42,9 +43,16 @@ Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
 #endif
 
 Addr Stripe::invoke(Addr PC, void *mem) const {
-  size_t idx = (PC - start_PC) / 4;
-  assert(idx < this->PC2offset.size());
-  size_t off = this->PC2offset[idx];
-  Func func = (Func)((size_t)fn + off);
-  return func(mem);
+  if (!this->contains(PC)) {
+    throw std::runtime_error(
+        std::format("invoke: PC out of stripe: PC={}", PC));
+  }
+  do {
+    size_t idx = (PC - start_PC) / 4;
+    assert(idx < this->PC2offset.size());
+    size_t off = this->PC2offset[idx];
+    Func func = (Func)((size_t)fn + off);
+    PC = func(mem);
+  } while (this->contains(PC));
+  return PC;
 }
