@@ -1,9 +1,9 @@
 #include "instruction.hpp"
 #include "../runtime/syscall.hpp"
+#include <asmjit/x86/x86operand.h>
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
-#include <string>
 
 struct Insn_DUMMY {
   unsigned opcode : 6 = 0;
@@ -59,96 +59,105 @@ std::unique_ptr<Insn> Insn::decode_insn(uint32_t insn) {
   }
 }
 
-std::string Insn_A::transpile(size_t PC) const {
+#define VAR(var) asmjit::x86::Mem(asmjit::x86::rdi, 4 * (var))
+#define LD(target, var) a.mov((target), VAR(var))
+#define ST(source, var) a.mov(VAR(var), (source))
+
+void Insn_A::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   if (this->opcode == 0b010011) {
     // BEQ
     size_t target = this->jump_dest(PC).value();
-    return std::format("mov eax, [rdi+4*{}];"
-                       "mov edx, [rdi+4*{}];"
-                       "cmp eax, edx;"
-                       "jz addr_{};",
-                       this->rs, this->rt, target);
+    LD(asmjit::x86::eax, this->rs);
+    LD(asmjit::x86::edx, this->rt);
+    a.cmp(asmjit::x86::eax, asmjit::x86::edx);
+
+    auto didJump = a.newLabel();
+    a.jz(didJump);
+    a.mov(asmjit::x86::eax, PC + 4);
+    a.ret();
+
+    a.bind(didJump);
+    a.mov(asmjit::x86::eax, target);
+    a.ret();
   } else {
     // SLTI
     int32_t imm = this->imm16;
-    return std::format("mov eax, [rdi+4*{}];"
-                       "cmp eax, {};"
-                       "setl al;"
-                       "movzx eax, al;"
-                       "mov [rdi+4*{}], eax;",
-                       this->rs, imm, this->rt);
+    LD(asmjit::x86::eax, this->rs);
+    a.cmp(asmjit::x86::eax, imm);
+    a.setl(asmjit::x86::al);
+    a.movzx(asmjit::x86::eax, asmjit::x86::al);
+    ST(asmjit::x86::eax, this->rt);
   }
 }
 
-std::string Insn_B::transpile(size_t PC) const {
+void Insn_B::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   if (this->opcode == 0b100010) {
     // USAT: clamp to n bits
-    return "int3";
+    a.int3();
   } else if (this->opcode == 0b111001) {
     // STP
-    return std::format("mov eax, [rdi+4*{}];" // base
-                       "mov edx, [rdi+4*{}];" // rt1
-                       "mov [rax+rdi+4*32+{}], edx;"
-                       "mov edx, [rdi+4*{}];" // rt2
-                       "mov [rax+rdi+4*32+{}], edx;",
-                       this->rd, this->rs, this->imm11, this->imm5,
-                       this->imm11 + 4);
+    LD(asmjit::x86::eax, this->rd);
+
+    LD(asmjit::x86::edx, this->rs);
+    a.mov(asmjit::x86::Mem(asmjit::x86::rax, asmjit::x86::rdi, 1,
+                           4 * 32 + this->imm11),
+          asmjit::x86::edx);
+
+    LD(asmjit::x86::edx, this->imm5);
+    a.mov(asmjit::x86::Mem(asmjit::x86::rax, asmjit::x86::rdi, 1,
+                           4 * 32 + this->imm11 + 4),
+          asmjit::x86::edx);
   } else {
     // RORI
-    return std::format("mov eax, [rdi+4*{}];"
-                       "ror eax, {};"
-                       "mov [rdi+4*{}], eax;",
-                       this->rs, this->imm5, this->rd);
+    LD(asmjit::x86::eax, this->rs);
+    a.ror(asmjit::x86::eax, this->imm5);
+    ST(asmjit::x86::eax, this->rd);
   }
 }
 
-std::string Insn_C::transpile(size_t PC) const {
+void Insn_C::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   if (this->opcode == 0b100011) {
     // LD
-    return std::format("mov eax, [rdi+4*{}];"
-                       "mov rax, [rax+rdi+4*32+{}];"
-                       "mov [rdi+4*{}], eax;",
-                       this->base, this->offset, this->rt);
+    LD(asmjit::x86::eax, this->base);
+    a.mov(asmjit::x86::eax, asmjit::x86::Mem(asmjit::x86::rax, asmjit::x86::rdi,
+                                             1, 4 * 32 + this->offset));
+    ST(asmjit::x86::eax, this->rt);
   } else {
     // ST
-    return std::format("mov eax, [rdi+4*{}];"
-                       "mov edx, [rdi+4*{}];"
-                       "mov [rax+rdi+4*32+{}], edx;",
-                       this->base, this->rt, this->offset);
+    LD(asmjit::x86::eax, this->base);
+    LD(asmjit::x86::edx, this->rt);
+    a.mov(asmjit::x86::Mem(asmjit::x86::rax, asmjit::x86::rdi, 1,
+                           4 * 32 + this->offset),
+          asmjit::x86::edx);
   }
 }
 
-std::string Insn_D::transpile(size_t PC) const {
+void Insn_D::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   if (this->func == 0b000100) {
     // MOVZ
-    return std::format("mov eax, [rdi+4*{}];"
-                       "mov edx, [rdi+4*{}];"
-                       "test eax, eax;"
-                       "cmovz edx, [rdi+4*{}];"
-                       "mov [rdi+4*{}], edx;",
-                       this->rt, this->rd, this->rs, this->rd);
+    LD(asmjit::x86::eax, this->rt);
+    LD(asmjit::x86::edx, this->rd);
+    a.test(asmjit::x86::eax, asmjit::x86::eax);
+    a.cmovz(asmjit::x86::edx, VAR(this->rs));
+    ST(asmjit::x86::edx, this->rd);
   } else if (this->func == 0b011111) {
     // SUB
-    return std::format("mov eax, [rdi+4*{}];"
-                       "mov edx, [rdi+4*{}];"
-                       "sub eax, edx;"
-                       "mov [rdi+4*{}], eax;",
-                       this->rs, this->rt, this->rd);
+    LD(asmjit::x86::eax, this->rt);
+    LD(asmjit::x86::edx, this->rd);
+    a.sub(asmjit::x86::eax, asmjit::x86::edx);
+    ST(asmjit::x86::eax, this->rd);
   } else {
     // ADD
-    return std::format("mov eax, [rdi+4*{}];"
-                       "mov edx, [rdi+4*{}];"
-                       "add eax, edx;"
-                       "mov [rdi+4*{}], eax;",
-                       this->rs, this->rt, this->rd);
+    LD(asmjit::x86::eax, this->rt);
+    LD(asmjit::x86::edx, this->rd);
+    a.add(asmjit::x86::eax, asmjit::x86::edx);
+    ST(asmjit::x86::eax, this->rd);
   }
 }
 
-std::string Insn_SYSCALL::transpile(size_t PC) const {
-  return "push rdi;"
-         "mov rax, " +
-         std::to_string((size_t)syscall_impl) +
-         ";"
-         "call rax;"
-         "pop rdi;";
+void Insn_SYSCALL::transpile(asmjit::x86::Assembler &a, size_t PC) const {
+  a.push(asmjit::x86::rdi);
+  a.mov(asmjit::x86::rax, (size_t)syscall_impl);
+  a.call(asmjit::x86::rax);
+  a.pop(asmjit::x86::rdi);
 }

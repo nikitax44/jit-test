@@ -1,4 +1,3 @@
-#include "backend/asm.hpp"
 // #include <ios>
 #include "frontend/decoder.hpp"
 #include <cassert>
@@ -32,16 +31,5 @@ int main(int argc, char **) {
   StripeDecoder decoder(ops.data(), ops.size());
 
   auto code = decoder.compile();
-
-  std::replace(code.begin(), code.end(), ';', '\n');
-
-  if (argc > 1) {
-    std::cout << code << std::endl;
-    std::cout << "\n// nstripes: " << decoder.stripes.size() << std::endl;
-  }
-
-  Assembler assm;
-  auto exec = assm.assemble(code.c_str());
-  // std::cout << exec.ptr() << std::endl;
-  exec.invoke(memory);
+  code.run(memory);
 }

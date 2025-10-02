@@ -1,6 +1,6 @@
 #pragma once
+#include <asmjit/x86/x86assembler.h>
 #include <cstdint>
-#include <format>
 #include <memory>
 #include <optional>
 
@@ -10,7 +10,7 @@ struct Insn {
     return false;
   }; // `call` should return true
   virtual std::optional<size_t> jump_dest(size_t PC) const { return {}; };
-  virtual std::string transpile(size_t PC) const = 0;
+  virtual void transpile(asmjit::x86::Assembler &a, size_t PC) const = 0;
 
   static std::unique_ptr<Insn> decode_insn(uint32_t insn);
 };
@@ -29,7 +29,7 @@ struct Insn_A : Insn {
   std::optional<size_t> jump_dest(size_t PC) const override {
     return {PC + (((int32_t)imm16) << 2)};
   }
-  std::string transpile(size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
 };
 
 struct Insn_B : Insn {
@@ -41,7 +41,7 @@ struct Insn_B : Insn {
   Insn_B(uint32_t bits)
       : opcode(bits >> 26), rd(bits >> 21), rs(bits >> 16), imm5(bits >> 11),
         imm11(bits) {}
-  std::string transpile(size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
 };
 
 struct Insn_C : Insn {
@@ -51,7 +51,7 @@ struct Insn_C : Insn {
   signed offset : 16;
   Insn_C(uint32_t bits)
       : opcode(bits >> 26), base(bits >> 21), rt(bits >> 16), offset(bits) {}
-  std::string transpile(size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
 };
 
 struct Insn_D : Insn {
@@ -64,7 +64,7 @@ struct Insn_D : Insn {
   Insn_D(uint32_t bits)
       : opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), rd(bits >> 11),
         zero(bits >> 6), func(bits) {}
-  std::string transpile(size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
 };
 
 struct Insn_E : Insn {
@@ -77,7 +77,9 @@ struct Insn_E : Insn {
   Insn_E(uint32_t bits)
       : opcode(bits >> 26), rd(bits >> 21), rs1(bits >> 16), rs2(bits >> 11),
         zero(bits >> 6), func(bits) {}
-  std::string transpile(size_t PC) const override { return "int3;"; }
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override {
+    a.int3();
+  }
 };
 
 struct Insn_SYSCALL : Insn {
@@ -86,7 +88,7 @@ struct Insn_SYSCALL : Insn {
   unsigned func : 6 = 0b011001;
   Insn_SYSCALL(uint32_t bits)
       : opcode(bits >> 26), code(bits >> 6), func(bits) {}
-  std::string transpile(size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
 };
 
 struct Insn_J : Insn {
@@ -100,17 +102,21 @@ struct Insn_J : Insn {
     size_t base = (PC >> 28) << 28;
     return {base + (((size_t)index) << 2)};
   }
-  std::string transpile(size_t PC) const override {
-    return std::format("jmp addr_{};", this->jump_dest(PC).value());
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override {
+    size_t dest = this->jump_dest(PC).value();
+    a.mov(asmjit::x86::eax, dest);
+    a.ret();
   }
 };
 
 struct Insn_ILLEGAL : Insn {
   unsigned bits : 32;
   Insn_ILLEGAL(uint32_t bits) : bits(bits) {}
-  std::string transpile(size_t PC) const override {
-    if (bits == 1)
-      return "int3";
-    return "ud2;";
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const override {
+    if (bits == 1) {
+      a.int3();
+    } else {
+      a.ud2();
+    }
   }
 };

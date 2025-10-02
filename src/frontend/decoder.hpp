@@ -1,17 +1,19 @@
 #pragma once
+#include "code.hpp"
 #include "instruction.hpp"
+#include <asmjit/core/jitruntime.h>
 #include <cassert>
 #include <cstddef>
 #include <map>
+#include <memory>
 #include <optional>
 
-struct Stripe {
+struct StripeLoc {
   size_t start;
   size_t end; // points at the branch instruction
 };
 
 class StripeDecoder {
-public:
   std::map<size_t, size_t> stripes;
   const uint32_t *code;
   size_t size;
@@ -23,7 +25,7 @@ public:
   };
 
   // O(log n) on emplace
-  void add_stripe(Stripe stripe, Result res) { // reuse existing Result
+  void add_stripe(StripeLoc stripe, Result res) { // reuse existing Result
     // Result res = this->get(stripe.start);
     if (res.is_inside)
       return;
@@ -77,10 +79,10 @@ public:
     auto res = this->get(start);
     if (res.is_inside)
       return;
-    Stripe next =
-        res.following_stripe != stripes.end()
-            ? Stripe{res.following_stripe->first, res.following_stripe->second}
-            : Stripe{size, size - 1};
+    StripeLoc next = res.following_stripe != stripes.end()
+                         ? StripeLoc{res.following_stripe->first,
+                                     res.following_stripe->second}
+                         : StripeLoc{size, size - 1};
     size_t ip = start;
     for (; ip != next.start && !this->at(ip)->is_branch(); ++ip) {
       // do nothing, go on
@@ -112,18 +114,15 @@ public:
     this->traverse(0);
   }
 
-  std::string compile() {
+  Code compile() {
     this->traverse();
-    std::string out = "";
+    Code out;
+    std::shared_ptr<asmjit::JitRuntime> rt =
+        std::make_shared<asmjit::JitRuntime>();
     for (const auto &stripe : this->stripes) {
-      for (size_t PC = stripe.first * 4; PC <= stripe.second * 4; PC += 4) {
-        out += "\naddr_";
-        out += std::to_string(PC);
-        out += ":\n";
-
-        auto insn = this->at(PC / 4);
-        out += insn->transpile(PC);
-      }
+      std::unique_ptr<Stripe> s = std::make_unique<Stripe>(
+          this->code, stripe.first * 4, stripe.second * 4);
+      out.insertStripe(std::move(s));
     }
     return out;
   }
