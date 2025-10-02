@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <type_traits>
 
 struct Insn {
   virtual bool is_branch() const { return false; };
@@ -14,6 +15,24 @@ struct Insn {
 
   static std::unique_ptr<Insn> decode_insn(uint32_t insn);
 };
+
+struct InsnWrap {
+  uint32_t bits;
+  bool is_branch() const { return Insn::decode_insn(bits)->is_branch(); };
+  bool branch_can_fallthrough() const {
+    return Insn::decode_insn(bits)->branch_can_fallthrough();
+  }; // `call` should return true
+  std::optional<size_t> jump_dest(size_t PC) const {
+    return Insn::decode_insn(bits)->jump_dest(PC);
+  };
+  void transpile(asmjit::x86::Assembler &a, size_t PC) const {
+    return Insn::decode_insn(bits)->transpile(a, PC);
+  };
+};
+
+static_assert(std::is_trivially_copyable_v<InsnWrap> &&
+                  sizeof(InsnWrap) == sizeof(uint32_t),
+              "InsnWrap should be bitcast'able from uint32_t");
 
 struct Insn_A : Insn {
   unsigned opcode : 6;

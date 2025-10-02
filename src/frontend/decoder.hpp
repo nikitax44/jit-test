@@ -2,6 +2,7 @@
 #include "code.hpp"
 #include "instruction.hpp"
 #include <asmjit/core/jitruntime.h>
+#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <map>
@@ -40,12 +41,11 @@ class StripeDecoder {
     stripes.emplace(stripe.start, stripe.end);
   }
 
-  std::unique_ptr<Insn> at(size_t ip) {
-    return Insn::decode_insn(this->code[ip]);
-  }
+  InsnWrap at(size_t ip) { return std::bit_cast<InsnWrap>(this->code[ip / 4]); }
 
 public:
-  StripeDecoder(const uint32_t *code, size_t size) : code(code), size(size) {}
+  StripeDecoder(const uint32_t *code, size_t count)
+      : code(code), size(count * 4) {}
 
   // O(log n)
   Result get(size_t pos) const {
@@ -82,9 +82,9 @@ public:
     StripeLoc next = res.following_stripe != stripes.end()
                          ? StripeLoc{res.following_stripe->first,
                                      res.following_stripe->second}
-                         : StripeLoc{size, size - 1};
+                         : StripeLoc{size, size - 4};
     size_t ip = start;
-    for (; ip != next.start && !this->at(ip)->is_branch(); ++ip) {
+    for (; ip != next.start && !this->at(ip).is_branch(); ip += 4) {
       // do nothing, go on
     }
 
@@ -97,13 +97,13 @@ public:
     // found a new branch
     this->add_stripe({start, ip}, res);
 
-    if (this->at(ip)->branch_can_fallthrough()) {
-      traverse(ip + 1);
+    if (this->at(ip).branch_can_fallthrough()) {
+      traverse(ip + 4);
     }
 
-    std::optional<size_t> jump_dest = this->at(ip)->jump_dest(ip << 2);
+    std::optional<size_t> jump_dest = this->at(ip).jump_dest(ip);
     if (jump_dest.has_value()) {
-      traverse(jump_dest.value() >> 2);
+      traverse(jump_dest.value());
     } else {
       // cannot determine where jump destination is
     }
@@ -120,8 +120,8 @@ public:
     std::shared_ptr<asmjit::JitRuntime> rt =
         std::make_shared<asmjit::JitRuntime>();
     for (const auto &stripe : this->stripes) {
-      std::unique_ptr<Stripe> s = std::make_unique<Stripe>(
-          this->code, stripe.first * 4, stripe.second * 4);
+      std::unique_ptr<Stripe> s =
+          std::make_unique<Stripe>(this->code, stripe.first, stripe.second);
       out.insertStripe(std::move(s));
     }
     return out;
