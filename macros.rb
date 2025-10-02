@@ -80,3 +80,33 @@ def debug()
   movc R8, 0
   syscall()
 end
+
+def blt(rs, rt, label)
+  mov rs, rs
+  nop 1
+  mov rt, rt
+  nop 1
+  sub R0, rs, rt
+  slti R0, R0, 0
+  beq R0, ONE, label
+end
+
+def ble(rs, rt, label)
+  sub R0, rs, rt
+  slti R0, R0, 1
+  beq R0, ONE, label
+end
+
+def unique_symbol
+  :"sym_#{object_id}"
+end
+
+def forl(rd, rs, rt)
+  start = unique_symbol
+  let start do
+    mov rd, rs
+    yield
+    inc rd
+    blt rd, rt, start
+  end
+end

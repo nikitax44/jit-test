@@ -120,14 +120,14 @@ struct Insn_D {
       ST(asmjit::x86::edx, this->rd);
     } else if (this->func == 0b011111) {
       // SUB
-      LD(asmjit::x86::eax, this->rt);
-      LD(asmjit::x86::edx, this->rd);
+      LD(asmjit::x86::eax, this->rs);
+      LD(asmjit::x86::edx, this->rt);
       a.sub(asmjit::x86::eax, asmjit::x86::edx);
       ST(asmjit::x86::eax, this->rd);
     } else {
       // ADD
-      LD(asmjit::x86::eax, this->rt);
-      LD(asmjit::x86::edx, this->rd);
+      LD(asmjit::x86::eax, this->rs);
+      LD(asmjit::x86::edx, this->rt);
       a.add(asmjit::x86::eax, asmjit::x86::edx);
       ST(asmjit::x86::eax, this->rd);
     }

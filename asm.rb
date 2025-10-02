@@ -171,7 +171,9 @@ def let(name, &block)
     puts [name, ":"].join('')
   end
   $labels[name]=$pc
-  block.call()
+  if block!=nil
+    block.call()
+  end
   if $verbose
     puts()
   end
