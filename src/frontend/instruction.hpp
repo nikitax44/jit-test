@@ -18,16 +18,25 @@ struct Insn {
 
 struct InsnWrap {
   uint32_t bits;
-  bool is_branch() const { return Insn::decode_insn(bits)->is_branch(); };
+  bool is_branch() const {
+    // return Insn::decode_insn(bits)->is_branch();
+    // BEQ or J
+    return this->opcode() == 0b010011 || this->opcode() == 0b010110;
+  }
   bool branch_can_fallthrough() const {
-    return Insn::decode_insn(bits)->branch_can_fallthrough();
-  }; // `call` should return true
+    // return Insn::decode_insn(bits)->branch_can_fallthrough();
+    // BEQ
+    return this->opcode() == 0b010011;
+  }
   std::optional<size_t> jump_dest(size_t PC) const {
     return Insn::decode_insn(bits)->jump_dest(PC);
-  };
+  }
   void transpile(asmjit::x86::Assembler &a, size_t PC) const {
     return Insn::decode_insn(bits)->transpile(a, PC);
-  };
+  }
+
+private:
+  inline uint8_t opcode() const { return bits >> 26; }
 };
 
 static_assert(std::is_trivially_copyable_v<InsnWrap> &&
