@@ -2,9 +2,6 @@
 #include "types.hpp"
 #include <asmjit/x86/x86assembler.h>
 #include <cstdint>
-#include <memory>
-#include <optional>
-#include <type_traits>
 
 struct Insn {
   virtual void transpile(asmjit::x86::Assembler &a, Addr PC) const = 0;
@@ -107,37 +104,3 @@ struct Insn_ILLEGAL : Insn {
     }
   }
 };
-
-struct InsnWrap {
-  uint32_t bits;
-  bool is_branch() const {
-    // BEQ or J
-    return this->opcode() == 0b010011 || this->opcode() == 0b010110;
-  }
-  bool branch_can_fallthrough() const {
-    // BEQ
-    return this->opcode() == 0b010011;
-  }
-  std::optional<Addr> jump_dest(Addr PC) const {
-    switch (opcode()) {
-    case 0b010011: // BEQ
-      return Insn_A(bits).jump_dest(PC);
-    case 0b010110: // J
-      return Insn_J(bits).jump_dest(PC);
-
-    default:
-      return {};
-    }
-  }
-  void transpile(asmjit::x86::Assembler &a, Addr PC) const {
-    return decode_insn()->transpile(a, PC);
-  }
-
-private:
-  inline uint8_t opcode() const { return bits >> 26; }
-  std::unique_ptr<Insn> decode_insn() const;
-};
-
-static_assert(std::is_trivially_copyable_v<InsnWrap> &&
-                  sizeof(InsnWrap) == sizeof(uint32_t),
-              "InsnWrap should be bitcast'able from uint32_t");

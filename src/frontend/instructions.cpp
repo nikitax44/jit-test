@@ -1,4 +1,4 @@
-#include "instruction.hpp"
+#include "instructions.hpp"
 #include "../runtime/syscall.hpp"
 #include <asmjit/x86/x86operand.h>
 #include <cstdint>
@@ -31,29 +31,29 @@ static std::unique_ptr<Insn> decode_func(InsnWrap insn) {
   }
 }
 
-std::unique_ptr<Insn> InsnWrap::decode_insn() const {
-  switch (opcode()) {
+static std::unique_ptr<Insn> decode_insn(InsnWrap insn) {
+  switch (insn.opcode()) {
   case 0:
-    return decode_func(*this);
+    return decode_func(insn);
 
   case 0b010011: // BEQ
   case 0b111011: // SLTI
-    return std::make_unique<Insn_A>(bits);
+    return std::make_unique<Insn_A>(insn.bits);
 
   case 0b100010: // USAT
   case 0b111001: // STP
   case 0b001100: // RORI
-    return std::make_unique<Insn_B>(bits);
+    return std::make_unique<Insn_B>(insn.bits);
 
   case 0b100011: // LD
   case 0b100101: // ST
-    return std::make_unique<Insn_C>(bits);
+    return std::make_unique<Insn_C>(insn.bits);
 
   case 0b010110: // J
-    return std::make_unique<Insn_J>(bits);
+    return std::make_unique<Insn_J>(insn.bits);
 
   default:
-    return std::make_unique<Insn_ILLEGAL>(bits);
+    return std::make_unique<Insn_ILLEGAL>(insn.bits);
   }
 }
 
@@ -158,4 +158,20 @@ void Insn_SYSCALL::transpile(asmjit::x86::Assembler &a, Addr PC) const {
   a.mov(asmjit::x86::rax, (size_t)syscall_impl);
   a.call(asmjit::x86::rax);
   a.pop(asmjit::x86::rdi);
+}
+
+void InsnWrap::transpile(asmjit::x86::Assembler &a, Addr PC) const {
+  return decode_insn(*this)->transpile(a, PC);
+}
+
+std::optional<Addr> InsnWrap::jump_dest(Addr PC) const {
+  switch (opcode()) {
+  case 0b010011: // BEQ
+    return Insn_A(bits).jump_dest(PC);
+  case 0b010110: // J
+    return Insn_J(bits).jump_dest(PC);
+
+  default:
+    return {};
+  }
 }

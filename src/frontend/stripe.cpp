@@ -1,5 +1,5 @@
 #include "stripe.hpp"
-#include "instruction.hpp"
+#include <stdexcept>
 
 Stripe::Stripe(const uint32_t *insns, Addr start_PC, Addr end_PC)
     : PC2offset(), start_PC(start_PC), rt() {
