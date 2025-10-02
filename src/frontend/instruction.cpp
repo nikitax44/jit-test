@@ -14,48 +14,46 @@ struct Insn_DUMMY {
       : opcode(bits >> 26), dummy(bits >> 6), func(bits) {}
 };
 
-static std::unique_ptr<Insn> decode_func(uint32_t insn) {
-  Insn_DUMMY dummy = insn;
-  switch (dummy.func) {
+static std::unique_ptr<Insn> decode_func(InsnWrap insn) {
+  switch (insn.bits & 0b111111) {
   case 0b000100: // MOVZ
   case 0b011111: // SUB
   case 0b011010: // ADD
-    return std::make_unique<Insn_D>(insn);
+    return std::make_unique<Insn_D>(insn.bits);
 
   case 0b000011: // SELC
   case 0b011101: // RBIT
-    return std::make_unique<Insn_E>(insn);
+    return std::make_unique<Insn_E>(insn.bits);
   case 0b011001: // SYSCALL
-    return std::make_unique<Insn_SYSCALL>(insn);
+    return std::make_unique<Insn_SYSCALL>(insn.bits);
   default:
-    return std::make_unique<Insn_ILLEGAL>(insn);
+    return std::make_unique<Insn_ILLEGAL>(insn.bits);
   }
 }
 
-std::unique_ptr<Insn> Insn::decode_insn(uint32_t insn) {
-  Insn_DUMMY dummy = insn;
-  switch (dummy.opcode) {
+std::unique_ptr<Insn> InsnWrap::decode_insn() const {
+  switch (opcode()) {
   case 0:
-    return decode_func(insn);
+    return decode_func(*this);
 
   case 0b010011: // BEQ
   case 0b111011: // SLTI
-    return std::make_unique<Insn_A>(insn);
+    return std::make_unique<Insn_A>(bits);
 
   case 0b100010: // USAT
   case 0b111001: // STP
   case 0b001100: // RORI
-    return std::make_unique<Insn_B>(insn);
+    return std::make_unique<Insn_B>(bits);
 
   case 0b100011: // LD
   case 0b100101: // ST
-    return std::make_unique<Insn_C>(insn);
+    return std::make_unique<Insn_C>(bits);
 
   case 0b010110: // J
-    return std::make_unique<Insn_J>(insn);
+    return std::make_unique<Insn_J>(bits);
 
   default:
-    return std::make_unique<Insn_ILLEGAL>(insn);
+    return std::make_unique<Insn_ILLEGAL>(bits);
   }
 }
 
@@ -63,10 +61,10 @@ std::unique_ptr<Insn> Insn::decode_insn(uint32_t insn) {
 #define LD(target, var) a.mov((target), VAR(var))
 #define ST(source, var) a.mov(VAR(var), (source))
 
-void Insn_A::transpile(asmjit::x86::Assembler &a, size_t PC) const {
+void Insn_A::transpile(asmjit::x86::Assembler &a, Addr PC) const {
   if (this->opcode == 0b010011) {
     // BEQ
-    size_t target = this->jump_dest(PC).value();
+    Addr target = this->jump_dest(PC);
     LD(asmjit::x86::eax, this->rs);
     LD(asmjit::x86::edx, this->rt);
     a.cmp(asmjit::x86::eax, asmjit::x86::edx);
@@ -90,7 +88,7 @@ void Insn_A::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   }
 }
 
-void Insn_B::transpile(asmjit::x86::Assembler &a, size_t PC) const {
+void Insn_B::transpile(asmjit::x86::Assembler &a, Addr PC) const {
   if (this->opcode == 0b100010) {
     // USAT: clamp to n bits
     a.int3();
@@ -115,7 +113,7 @@ void Insn_B::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   }
 }
 
-void Insn_C::transpile(asmjit::x86::Assembler &a, size_t PC) const {
+void Insn_C::transpile(asmjit::x86::Assembler &a, Addr PC) const {
   if (this->opcode == 0b100011) {
     // LD
     LD(asmjit::x86::eax, this->base);
@@ -132,7 +130,7 @@ void Insn_C::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   }
 }
 
-void Insn_D::transpile(asmjit::x86::Assembler &a, size_t PC) const {
+void Insn_D::transpile(asmjit::x86::Assembler &a, Addr PC) const {
   if (this->func == 0b000100) {
     // MOVZ
     LD(asmjit::x86::eax, this->rt);
@@ -155,7 +153,7 @@ void Insn_D::transpile(asmjit::x86::Assembler &a, size_t PC) const {
   }
 }
 
-void Insn_SYSCALL::transpile(asmjit::x86::Assembler &a, size_t PC) const {
+void Insn_SYSCALL::transpile(asmjit::x86::Assembler &a, Addr PC) const {
   a.push(asmjit::x86::rdi);
   a.mov(asmjit::x86::rax, (size_t)syscall_impl);
   a.call(asmjit::x86::rax);

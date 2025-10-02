@@ -1,4 +1,5 @@
 #pragma once
+#include "types.hpp"
 #include <asmjit/x86/x86assembler.h>
 #include <cstdint>
 #include <memory>
@@ -6,42 +7,8 @@
 #include <type_traits>
 
 struct Insn {
-  virtual bool is_branch() const { return false; };
-  virtual bool branch_can_fallthrough() const {
-    return false;
-  }; // `call` should return true
-  virtual std::optional<size_t> jump_dest(size_t PC) const { return {}; };
-  virtual void transpile(asmjit::x86::Assembler &a, size_t PC) const = 0;
-
-  static std::unique_ptr<Insn> decode_insn(uint32_t insn);
+  virtual void transpile(asmjit::x86::Assembler &a, Addr PC) const = 0;
 };
-
-struct InsnWrap {
-  uint32_t bits;
-  bool is_branch() const {
-    // return Insn::decode_insn(bits)->is_branch();
-    // BEQ or J
-    return this->opcode() == 0b010011 || this->opcode() == 0b010110;
-  }
-  bool branch_can_fallthrough() const {
-    // return Insn::decode_insn(bits)->branch_can_fallthrough();
-    // BEQ
-    return this->opcode() == 0b010011;
-  }
-  std::optional<size_t> jump_dest(size_t PC) const {
-    return Insn::decode_insn(bits)->jump_dest(PC);
-  }
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const {
-    return Insn::decode_insn(bits)->transpile(a, PC);
-  }
-
-private:
-  inline uint8_t opcode() const { return bits >> 26; }
-};
-
-static_assert(std::is_trivially_copyable_v<InsnWrap> &&
-                  sizeof(InsnWrap) == sizeof(uint32_t),
-              "InsnWrap should be bitcast'able from uint32_t");
 
 struct Insn_A : Insn {
   unsigned opcode : 6;
@@ -50,14 +17,8 @@ struct Insn_A : Insn {
   signed imm16 : 16;
   Insn_A(uint32_t bits)
       : opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), imm16(bits) {}
-  bool is_branch() const override {
-    return opcode == 0b010011; // BEQ
-  }
-  bool branch_can_fallthrough() const override { return true; }
-  std::optional<size_t> jump_dest(size_t PC) const override {
-    return {PC + (((int32_t)imm16) << 2)};
-  }
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
+  Addr jump_dest(Addr PC) const { return PC + (((int32_t)imm16) << 2); }
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override;
 };
 
 struct Insn_B : Insn {
@@ -69,7 +30,7 @@ struct Insn_B : Insn {
   Insn_B(uint32_t bits)
       : opcode(bits >> 26), rd(bits >> 21), rs(bits >> 16), imm5(bits >> 11),
         imm11(bits) {}
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override;
 };
 
 struct Insn_C : Insn {
@@ -79,7 +40,7 @@ struct Insn_C : Insn {
   signed offset : 16;
   Insn_C(uint32_t bits)
       : opcode(bits >> 26), base(bits >> 21), rt(bits >> 16), offset(bits) {}
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override;
 };
 
 struct Insn_D : Insn {
@@ -92,7 +53,7 @@ struct Insn_D : Insn {
   Insn_D(uint32_t bits)
       : opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), rd(bits >> 11),
         zero(bits >> 6), func(bits) {}
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override;
 };
 
 struct Insn_E : Insn {
@@ -105,7 +66,7 @@ struct Insn_E : Insn {
   Insn_E(uint32_t bits)
       : opcode(bits >> 26), rd(bits >> 21), rs1(bits >> 16), rs2(bits >> 11),
         zero(bits >> 6), func(bits) {}
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override {
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override {
     a.int3();
   }
 };
@@ -116,7 +77,7 @@ struct Insn_SYSCALL : Insn {
   unsigned func : 6 = 0b011001;
   Insn_SYSCALL(uint32_t bits)
       : opcode(bits >> 26), code(bits >> 6), func(bits) {}
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override;
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override;
 };
 
 struct Insn_J : Insn {
@@ -124,14 +85,12 @@ struct Insn_J : Insn {
   unsigned index : 26;
   Insn_J(uint32_t bits) : opcode(bits >> 26), index(bits) {}
 
-  bool is_branch() const override { return true; }
-  bool branch_can_fallthrough() const override { return false; }
-  std::optional<size_t> jump_dest(size_t PC) const override {
-    size_t base = (PC >> 28) << 28;
-    return {base + (((size_t)index) << 2)};
+  Addr jump_dest(Addr PC) const {
+    Addr base = (PC >> 28) << 28;
+    return base + (((Addr)index) << 2);
   }
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override {
-    size_t dest = this->jump_dest(PC).value();
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override {
+    Addr dest = this->jump_dest(PC);
     a.mov(asmjit::x86::eax, dest);
     a.ret();
   }
@@ -140,7 +99,7 @@ struct Insn_J : Insn {
 struct Insn_ILLEGAL : Insn {
   unsigned bits : 32;
   Insn_ILLEGAL(uint32_t bits) : bits(bits) {}
-  void transpile(asmjit::x86::Assembler &a, size_t PC) const override {
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const override {
     if (bits == 1) {
       a.int3();
     } else {
@@ -148,3 +107,37 @@ struct Insn_ILLEGAL : Insn {
     }
   }
 };
+
+struct InsnWrap {
+  uint32_t bits;
+  bool is_branch() const {
+    // BEQ or J
+    return this->opcode() == 0b010011 || this->opcode() == 0b010110;
+  }
+  bool branch_can_fallthrough() const {
+    // BEQ
+    return this->opcode() == 0b010011;
+  }
+  std::optional<Addr> jump_dest(Addr PC) const {
+    switch (opcode()) {
+    case 0b010011: // BEQ
+      return Insn_A(bits).jump_dest(PC);
+    case 0b010110: // J
+      return Insn_J(bits).jump_dest(PC);
+
+    default:
+      return {};
+    }
+  }
+  void transpile(asmjit::x86::Assembler &a, Addr PC) const {
+    return decode_insn()->transpile(a, PC);
+  }
+
+private:
+  inline uint8_t opcode() const { return bits >> 26; }
+  std::unique_ptr<Insn> decode_insn() const;
+};
+
+static_assert(std::is_trivially_copyable_v<InsnWrap> &&
+                  sizeof(InsnWrap) == sizeof(uint32_t),
+              "InsnWrap should be bitcast'able from uint32_t");

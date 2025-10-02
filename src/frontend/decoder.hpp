@@ -10,18 +10,17 @@
 #include <optional>
 
 struct StripeLoc {
-  size_t start;
-  size_t end; // points at the branch instruction
+  Addr start;
+  Addr end; // points at the branch instruction
 };
 
 class StripeDecoder {
-  std::map<size_t, size_t> stripes;
+  std::map<Addr, Addr> stripes;
   const uint32_t *code;
-  size_t size;
+  Addr size;
 
   struct Result {
-    size_t end_of_the_stripe;
-    std::map<size_t, size_t>::const_iterator following_stripe;
+    std::map<Addr, Addr>::const_iterator following_stripe;
     bool is_inside;
   };
 
@@ -41,31 +40,31 @@ class StripeDecoder {
     stripes.emplace(stripe.start, stripe.end);
   }
 
-  InsnWrap at(size_t ip) { return std::bit_cast<InsnWrap>(this->code[ip / 4]); }
+  InsnWrap at(Addr ip) { return std::bit_cast<InsnWrap>(this->code[ip / 4]); }
 
 public:
   StripeDecoder(const uint32_t *code, size_t count)
       : code(code), size(count * 4) {}
 
   // O(log n)
-  Result get(size_t pos) const {
+  Result get(Addr pos) const {
     if (stripes.empty()) {
-      return {0, stripes.end(), false};
+      return {stripes.end(), false};
     }
     auto it = std::prev(stripes.upper_bound(pos)); // less-than or equal to pos
     if (pos <= it->second) {
-      return {it->second, stripes.end(), true};
+      return {stripes.end(), true};
     }
     ++it;
     if (it == stripes.end()) {
       // all stripes end before us
-      return {0, stripes.end(), false};
+      return {stripes.end(), false};
     }
-    return {0, it, false};
+    return {it, false};
   }
 
   // TODO: remove triple-decoding of the instruction
-  void traverse(size_t start) {
+  void traverse(Addr start) {
     // go through the code starting from the
     // the problem is: the branch might always/never be taken and then we will
     // decode both cases.
@@ -83,7 +82,7 @@ public:
                          ? StripeLoc{res.following_stripe->first,
                                      res.following_stripe->second}
                          : StripeLoc{size, size - 4};
-    size_t ip = start;
+    Addr ip = start;
     for (; ip != next.start && !this->at(ip).is_branch(); ip += 4) {
       // do nothing, go on
     }
@@ -101,7 +100,7 @@ public:
       traverse(ip + 4);
     }
 
-    std::optional<size_t> jump_dest = this->at(ip).jump_dest(ip);
+    std::optional<Addr> jump_dest = this->at(ip).jump_dest(ip);
     if (jump_dest.has_value()) {
       traverse(jump_dest.value());
     } else {

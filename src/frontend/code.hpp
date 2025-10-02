@@ -1,12 +1,13 @@
 #pragma once
-
 #include "stripe.hpp"
+#include "types.hpp"
 #include <memory>
 #include <stdexcept>
-class Code {
-  std::map<size_t, std::unique_ptr<Stripe>> code;
 
-  const Stripe &get(size_t PC) const {
+class Code {
+  std::map<Addr, std::unique_ptr<Stripe>> code;
+
+  const Stripe &get(Addr PC) const {
     if (code.empty()) {
       throw std::runtime_error("Cannot get stripe from empty program");
     }
@@ -18,12 +19,12 @@ class Code {
 public:
   Code() : code() {}
   void insertStripe(std::unique_ptr<Stripe> stripe) {
-    size_t startPC = stripe->startPC();
+    Addr startPC = stripe->startPC();
     this->code.emplace(startPC, std::move(stripe));
   }
 
   void run(void *mem) const {
-    size_t PC = 0;
+    Addr PC = 0;
     while (true) {
       const auto &stripe = this->get(PC);
       PC = stripe.invoke(PC, mem);
