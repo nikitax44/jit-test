@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -e
-cat >build.ninja <<'EOF'
+cat >build.ninja <<EOF
 rule cxx
-  command = g++ -std=c++20 -ggdb -g3 -MMD -MF $out.d -c $in -o $out $cflags
-  depfile = $out.d
+  command = $CXX -std=c++20 -ggdb -g3 -MMD -MF \$out.d -c \$in -o \$out \$cflags
+  depfile = \$out.d
   deps = gcc
-  description = CXX $out
+  description = CXX \$out
 
 rule ld
-  command = g++ $in -o $out -lasmjit
-  description = LD $out
+  command = $CXX \$in -o \$out -lasmjit
+  description = LD \$out
 EOF
 
 objs=()

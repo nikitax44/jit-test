@@ -1,3 +1,3 @@
 #include <cstdint>
 
-void syscall_impl(uint32_t *buf);
+extern "C" void syscall_impl(uint32_t *buf);

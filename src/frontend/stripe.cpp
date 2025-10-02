@@ -21,6 +21,15 @@ Stripe::Stripe(const uint32_t *insns, size_t start_PC, size_t end_PC)
   }
 }
 
+#if !defined(__x86_64__) && !defined(_M_X64)
+#error "This code requires x86-64 architecture"
+#endif
+
+#if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__) ||              \
+    defined(__MINGW64__) || defined(_MSC_VER)
+#error "System V x86_64 ABI required: this code will break on Windows targets";
+#endif
+
 size_t Stripe::invoke(size_t PC, void *mem) const {
   size_t off = this->PC2offset.at(PC);
   Func func = (Func)((size_t)fn + off);
