@@ -1,5 +1,6 @@
 // #include <ios>
-#include "frontend/decoder.hpp"
+#include "frontend/code.hpp"
+#include "frontend/types.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
@@ -20,7 +21,7 @@ int main(int argc, char **) {
   // ;
   // std::cout << "Hello!" << std::endl;
   std::ifstream in("/tmp/code.bin");
-  std::vector<uint32_t> ops;
+  std::vector<InsnWrap> ops;
   in.seekg(0, std::ios::end);
   size_t size = in.tellg();
   assert(size % sizeof(uint32_t) == 0);
@@ -28,8 +29,8 @@ int main(int argc, char **) {
   in.seekg(0, std::ios::beg);
   in.read(reinterpret_cast<char *>(ops.data()), size);
 
-  StripeDecoder decoder(ops.data(), ops.size());
+  Code code(ops);
 
-  auto code = decoder.compile();
+  // auto code = decoder.compile();
   code.run(memory);
 }

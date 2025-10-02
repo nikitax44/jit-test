@@ -3,9 +3,9 @@
 #include <asmjit/core/operand.h>
 #include <stdexcept>
 
-Stripe::Stripe(const uint32_t *insns, Addr start_PC, Addr end_PC)
-    : PC2offset(), start_PC(start_PC), rt() {
-  auto branch = std::bit_cast<InsnWrap>(insns[end_PC / 4]);
+Stripe::Stripe(const InsnWrap *insns, Addr start_PC, Addr end_PC)
+    : PC2offset(), start_PC(start_PC), end_PC(end_PC), rt() {
+  auto branch = insns[end_PC / 4];
   this->const_next = branch.const_jump(end_PC);
 
   asmjit::CodeHolder code;
@@ -16,7 +16,7 @@ Stripe::Stripe(const uint32_t *insns, Addr start_PC, Addr end_PC)
   for (size_t PC = start_PC; PC <= end_PC; PC += 4) {
     PC2offset.emplace(PC, a.offset());
 
-    auto insn = std::bit_cast<InsnWrap>(insns[PC / 4]);
+    auto insn = insns[PC / 4];
     insn.transpile(a, PC);
   }
   a.ud2(); // just to be safe

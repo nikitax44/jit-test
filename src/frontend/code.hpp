@@ -2,32 +2,23 @@
 #include "stripe.hpp"
 #include "types.hpp"
 #include <memory>
-#include <stdexcept>
+#include <span>
 
 class Code {
+  // maps from stripe's end to the Stripe
   std::map<Addr, std::unique_ptr<Stripe>> code;
+  std::span<InsnWrap> insns;
 
-  const Stripe &get(Addr PC) const {
-    if (code.empty()) {
-      throw std::runtime_error("Cannot get stripe from empty program");
-    }
-    const std::unique_ptr<Stripe> &stripe =
-        std::prev(code.upper_bound(PC))->second;
-    return *stripe; // less-than or equal to pos
+  std::optional<std::reference_wrapper<const Stripe>> get(Addr PC) const;
+  std::unique_ptr<Stripe> decode(Addr start) const;
+
+  void insertStripe(std::unique_ptr<Stripe> stripe) {
+    Addr endPC = stripe->endPC();
+    this->code.emplace(endPC, std::move(stripe));
   }
 
 public:
-  Code() : code() {}
-  void insertStripe(std::unique_ptr<Stripe> stripe) {
-    Addr startPC = stripe->startPC();
-    this->code.emplace(startPC, std::move(stripe));
-  }
+  Code(std::span<InsnWrap> insns) : code(), insns(insns) {}
 
-  void run(void *mem) const {
-    Addr PC = 0;
-    while (true) {
-      const auto &stripe = this->get(PC);
-      PC = stripe.invoke(PC, mem);
-    }
-  }
+  void run(void *mem);
 };

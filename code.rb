@@ -15,6 +15,10 @@ let :setup do
   movc A, 0
   movc B, 1
   # jmp :setup
+  #
+  # for i in 0..100_000_000 do
+  #   nop()
+  # end
 end
 
 let :loop do

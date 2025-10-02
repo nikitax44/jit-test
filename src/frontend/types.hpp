@@ -6,11 +6,11 @@ typedef uint32_t Addr;
 
 struct InsnWrap {
   uint32_t bits;
-  bool is_branch() const {
+  inline bool is_branch() const {
     // BEQ or J
     return this->opcode() == 0b010011 || this->opcode() == 0b010110;
   }
-  bool branch_can_fallthrough() const {
+  inline bool branch_can_fallthrough() const {
     // BEQ
     return this->opcode() == 0b010011;
   }
