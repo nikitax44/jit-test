@@ -9,6 +9,13 @@ R8 = 8
 SP = 9
 
 
+def assert(condition, message = "Assertion failed")
+  unless condition
+    raise AssertionError.new(message)
+  end
+end
+
+class AssertionError < StandardError; end
 
 let :setup1 do
   sub ZERO, ZERO, ZERO
@@ -73,7 +80,7 @@ end
 
 def pop(rd)
   sub SP, SP, FOUR
-  ld rs, 0, SP
+  ld rd, 0, SP
 end
 
 def debug()
@@ -89,6 +96,32 @@ def blt(rs, rt, label)
   sub R0, rs, rt
   slti R0, R0, 0
   beq R0, ONE, label
+end
+
+def call(label, maxbits=32)
+  addr = $labels[label]
+  movc R8, 100
+  if addr !=nil
+    movc R0, addr
+  else
+    $patchup[$pc]=Proc.new {
+      addr = $labels[label]
+      assert (ones_positions_int32 addr).size <= maxbits, ["addr = ", addr, " did not fit in ", maxbits, " 1-bits: required ", (ones_positions_int32 addr).size].join()
+      movc R0, addr
+    }
+    nop 1+2*maxbits;
+  end
+  syscall()
+end
+
+def enter
+  push R0
+end
+
+def ret
+  pop R0
+  movc R8, 100
+  syscall()
 end
 
 def ble(rs, rt, label)

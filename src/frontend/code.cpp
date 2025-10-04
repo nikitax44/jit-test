@@ -2,7 +2,7 @@
 #include <format>
 #include <memory>
 
-void Code::run(void *mem) {
+void Code::run(Memory &mem) {
   Addr PC = 0;
   std::optional<std::shared_ptr<Stripe>> prev;
   auto stripe = this->get(PC);

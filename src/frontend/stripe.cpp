@@ -42,7 +42,7 @@ Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
 #error "System V x86_64 ABI required: this code will break on Windows targets";
 #endif
 
-Addr Stripe::invoke(Addr PC, void *mem) const {
+Addr Stripe::invoke(Addr PC, Memory &mem) const {
   if (!this->contains(PC)) {
     throw std::runtime_error(
         std::format("invoke: PC out of stripe: PC={}", PC));

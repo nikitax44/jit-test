@@ -8,8 +8,8 @@
 #define VAR(var) asmjit::x86::Mem(asmjit::x86::rdi, 4 * (var))
 #define LD(target, var) a.mov((target), VAR(var))
 #define ST(source, var) a.mov(VAR(var), (source))
-#define MEM(base, offset)                                                      \
-  asmjit::x86::Mem(asmjit::x86::rdi, (base), 1, 4 * 32 + (offset))
+#define MEM(base, offset) /* scale=1 */                                        \
+  asmjit::x86::Mem(asmjit::x86::rdi, (base), 0, 4 * 32 + (offset))
 
 struct Insn_A {
   unsigned opcode : 6;
@@ -40,8 +40,8 @@ struct Insn_A {
       int32_t imm = this->imm16;
       LD(asmjit::x86::eax, this->rs);
       a.cmp(asmjit::x86::eax, imm);
-      a.setl(asmjit::x86::al);
-      a.movzx(asmjit::x86::eax, asmjit::x86::al);
+      a.setl(asmjit::x86::al);                    //  al=(uint8_t)(X[rs]<imm)
+      a.movzx(asmjit::x86::eax, asmjit::x86::al); // eax=(uint32_t)al
       ST(asmjit::x86::eax, this->rt);
     }
   }
@@ -64,10 +64,10 @@ struct Insn_B {
       // STP
       LD(asmjit::x86::eax, this->rd);
 
-      LD(asmjit::x86::edx, this->rs);
+      LD(asmjit::x86::edx, this->rs); // rt1
       a.mov(MEM(asmjit::x86::eax, this->imm11), asmjit::x86::edx);
 
-      LD(asmjit::x86::edx, this->imm5);
+      LD(asmjit::x86::edx, this->imm5); // rt2
       a.mov(MEM(asmjit::x86::eax, this->imm11 + 4), asmjit::x86::edx);
     } else {
       // RORI
@@ -113,6 +113,7 @@ struct Insn_D {
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
     if (this->func == 0b000100) {
       // MOVZ
+      // if X[rt]==0 { X[rd]=X[rs]; } else { X[rd]=X[rd] }
       LD(asmjit::x86::eax, this->rt);
       LD(asmjit::x86::edx, this->rd);
       a.test(asmjit::x86::eax, asmjit::x86::eax);
@@ -154,10 +155,28 @@ struct Insn_SYSCALL {
   Insn_SYSCALL(uint32_t bits)
       : opcode(bits >> 26), code(bits >> 6), func(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
+    // rsp%16 == 8 because last thing pushed was return address
     a.push(asmjit::x86::rdi);
+    // rsp%16 == 0
+    a.mov(asmjit::x86::rsi, PC);
     a.mov(asmjit::x86::rax, (size_t)syscall_impl);
     a.call(asmjit::x86::rax);
     a.pop(asmjit::x86::rdi);
+
+    auto end = a.newLabel();
+
+    // rax contains the payload:tag
+    a.sub(asmjit::x86::rax, 1);
+    a.jl(end); // if tag==TAG_NOP: do nothing
+
+    a.mov(asmjit::x86::rsi, asmjit::x86::rax);
+    a.shr(asmjit::x86::rsi, 32);               // rsi is the payload
+    a.mov(asmjit::x86::eax, asmjit::x86::eax); // rax is the tag
+    a.mov(asmjit::x86::rdx, (size_t)TABLE);
+    // tailcall TABLE[tag-1](rdi, payload)
+    a.jmp(asmjit::x86::Mem(asmjit::x86::rdx, asmjit::x86::rax, 3, 0));
+
+    a.bind(end);
   }
 };
 

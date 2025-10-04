@@ -27,5 +27,5 @@ public:
     }
   }
 
-  void run(void *mem);
+  void run(Memory &mem);
 };

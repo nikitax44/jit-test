@@ -43,10 +43,7 @@ let :loop do
 
   blt LIMIT, A, :exit # check out ble
 
-  # R8 - 99
-  mov R0, A
-  movc R8, 99
-  syscall()
+  call :printA, 4
 
   # fib step
   add R0, A, B
@@ -62,4 +59,14 @@ let :exit do
   mov R8, ONE
   movc R0, 0
   syscall()
+end
+
+let :printA do
+  enter()
+
+  mov R0, A
+  movc R8, 99
+  syscall()
+
+  ret()
 end

@@ -4,6 +4,11 @@
 #include <optional>
 typedef uint32_t Addr;
 
+struct Memory {
+  uint32_t reg[32];
+  uint8_t memory[];
+};
+
 struct InsnWrap {
   uint32_t bits;
   inline bool is_branch() const {

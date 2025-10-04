@@ -7,9 +7,18 @@ rule cxx
   deps = gcc
   description = CXX \$out
 
+rule as
+  command = $CXX -Wa,--noexecstack -c \$in -o \$out
+  description = AS \$out
+
 rule ld
   command = $CXX \$in -o \$out -lasmjit
   description = LD \$out
+
+rule ruby
+  command = ruby \$in \$out
+
+build ./build/code.bin : ruby asm.rb | code.rb macros.rb
 EOF
 
 objs=()
@@ -24,7 +33,6 @@ echo build build/main : ld "${objs[@]}" >>build.ninja
 
 ninja
 
-rm /tmp/dump_*.bin
-ruby asm.rb
+rm -f /tmp/dump_*.bin
 
-./build/main "$@"
+./build/main ./build/code.bin "$@"

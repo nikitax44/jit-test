@@ -1,13 +1,13 @@
-$out = File.open('/tmp/code.bin', "wb+")
+$out = File.open(ARGV[0], "wb+")
 $pc = 0
 $labels = {}
 $patchup = {}
 $verbose = false
 
 def emit(opcode, payload)
-  if $verbose
-    puts ['^ ', $pc].join('')
-  end
+  # if $verbose
+  #   puts ['^ ', $pc].join('')
+  # end
   bits = (opcode << 26) | (payload&0x3ffffff)
   $out.write([bits].pack("V"))
   $pc+=4
