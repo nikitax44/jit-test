@@ -2,6 +2,7 @@
 set -e
 cat >build.ninja <<EOF
 cflags = $CFLAGS -std=c++20 -O3 -g3
+asflags =
 rule cxx
   command = $CXX \$cflags -MMD -MF \$out.d \$in -o \$out -c
   depfile = \$out.d
@@ -9,7 +10,7 @@ rule cxx
   description = CXX \$out
 
 rule as
-  command = $CXX -Wa,--noexecstack -c \$in -o \$out
+  command = $CXX \$asflags -c \$in -o \$out
   description = AS \$out
 
 rule ld
