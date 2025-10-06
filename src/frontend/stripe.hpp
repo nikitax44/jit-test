@@ -1,8 +1,6 @@
 #pragma once
 #include "types.hpp"
-#include <asmjit/core/globals.h>
 #include <asmjit/core/jitruntime.h>
-#include <asmjit/x86/x86assembler.h>
 #include <cstddef>
 #include <memory>
 #include <span>

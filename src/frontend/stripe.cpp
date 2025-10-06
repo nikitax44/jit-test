@@ -1,7 +1,7 @@
 #include "stripe.hpp"
 #include "types.hpp"
 #include <asmjit/core/errorhandler.h>
-#include <asmjit/core/operand.h>
+#include <asmjit/x86/x86assembler.h>
 #include <cassert>
 #include <format>
 #include <span>

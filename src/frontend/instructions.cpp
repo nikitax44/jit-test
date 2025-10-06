@@ -1,8 +1,6 @@
 #include "../runtime/syscall.hpp"
 #include "types.hpp"
-#include <asmjit/core/globals.h>
 #include <asmjit/x86/x86assembler.h>
-#include <asmjit/x86/x86operand.h>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

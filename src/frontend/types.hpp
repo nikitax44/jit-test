@@ -1,10 +1,15 @@
 #pragma once
-#include <asmjit/x86/x86assembler.h>
+#include <asmjit/core/api-config.h>
 #include <cstdint>
 #include <optional>
 typedef uint32_t Addr;
 typedef uint32_t Reg;
 inline constexpr size_t regN = 1 << 5;
+
+// forward-declare asmjit::x86::Assembler
+ASMJIT_BEGIN_SUB_NAMESPACE(x86)
+class Assembler;
+ASMJIT_END_SUB_NAMESPACE
 
 struct Cpu {
   Reg reg[regN];
