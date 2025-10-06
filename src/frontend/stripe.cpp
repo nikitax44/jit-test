@@ -1,6 +1,6 @@
 #include "stripe.hpp"
 #include "../runtime/syscall.hpp"
-#include "platform.hpp"
+#include "platform.hpp" // IWYU pragma: keep
 #include "types.hpp"
 #include <asmjit/core/errorhandler.h>
 #include <asmjit/x86/x86assembler.h>
