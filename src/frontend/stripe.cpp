@@ -46,15 +46,6 @@ Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
   }
 }
 
-#if !defined(__x86_64__) && !defined(_M_X64)
-#error "This code requires x86-64 architecture"
-#endif
-
-#if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__) ||              \
-    defined(__MINGW64__) || defined(_MSC_VER)
-#error "System V x86_64 ABI required: this code will break on Windows targets";
-#endif
-
 Addr Stripe::invoke(Cpu &cpu, Memory &mem) const {
   if (!this->contains(cpu.pc)) {
     throw std::runtime_error(

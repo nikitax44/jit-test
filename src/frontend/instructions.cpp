@@ -8,6 +8,27 @@
 #include <cstdlib>
 #include <stdexcept>
 
+#if !defined(__x86_64__) && !defined(_M_X64)
+#error "This code requires x86-64 architecture"
+#endif
+
+#if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__) ||              \
+    defined(__MINGW64__) || defined(_MSC_VER)
+#define ABI_FASTCALL64
+#define REG_CPU asmjit::x86::rcx
+#define REG_MEM asmjit::x86::rdx
+#define REG_ARG3 asmjit::x86::r8
+#define REG_STACK asmjit::x86::rsp
+
+#define REG_RRET asmjit::x86::rax
+#define REG_ERET asmjit::x86::eax
+#define REG_LRET asmjit::x86::al
+
+#define REG_RBUF asmjit::x86::r9
+#define REG_EBUF asmjit::x86::r9d
+
+#else
+#define ABI_SYSV
 #define REG_CPU asmjit::x86::rdi
 #define REG_MEM asmjit::x86::rsi
 #define REG_ARG3 asmjit::x86::rdx
@@ -19,6 +40,7 @@
 
 #define REG_RBUF asmjit::x86::rcx
 #define REG_EBUF asmjit::x86::ecx
+#endif
 
 #define VAR(var) /* size=4 */ asmjit::x86::Mem(REG_CPU, sizeof(Reg) * (var), 2)
 #define MEM(base, offset) /* scale=1 */                                        \
@@ -186,13 +208,21 @@ struct Insn_SYSCALL {
     a.push(REG_CPU);
     a.push(REG_MEM);
     // sp%16 == 8
+#ifdef ABI_FASTCALL64
+    a.sub(REG_STACK, 40); // 32 bytes of shadow space
+#else
     a.sub(REG_STACK, 8);
+#endif
     // sp%16 == 0
     a.mov(PC, pc); // cpu.pc = pc
     a.mov(REG_RRET, (size_t)syscall_impl);
     a.call(REG_RRET);
 
+#ifdef ABI_FASTCALL64
+    a.add(REG_STACK, 40);
+#else
     a.add(REG_STACK, 8);
+#endif
     a.pop(REG_MEM);
     a.pop(REG_CPU);
 
