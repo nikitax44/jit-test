@@ -30,6 +30,12 @@ for file in $(find src/ -type f -name '*.cpp'); do
   objs+=("$obj")
 done
 
+for file in $(find src/ -type f -name '*.S'); do
+  obj="build/${file#src/}.o"
+  echo "build $obj : as $file" >>build.ninja
+  objs+=("$obj")
+done
+
 echo build build/main : ld "${objs[@]}" >>build.ninja
 
 ninja

@@ -1,4 +1,6 @@
 #include "stripe.hpp"
+#include "../runtime/syscall.hpp"
+#include "platform.hpp"
 #include "types.hpp"
 #include <asmjit/core/errorhandler.h>
 #include <asmjit/x86/x86assembler.h>
@@ -15,6 +17,10 @@ class ThrowingErrorHandler : public asmjit::ErrorHandler {
 };
 
 static ThrowingErrorHandler errorHandler = {};
+
+#ifdef ABI_CDECL
+extern "C" uint64_t cdecl2sysv32(Func func, Cpu &, Memory &);
+#endif
 
 Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
     : PC2offset(), start_PC(start_PC), end_PC(end_PC), rt() {
@@ -56,7 +62,14 @@ Addr Stripe::invoke(Cpu &cpu, Memory &mem) const {
     assert(idx < this->PC2offset.size());
     size_t off = this->PC2offset[idx];
     Func func = (Func)((size_t)fn + off);
-    func(cpu, mem);
+#ifdef ABI_CDECL
+    uint64_t res = cdecl2sysv32(func, cpu, mem);
+#else
+    uint64_t res = func(cpu, mem);
+#endif
+    if ((uint32_t)res != 0) {
+      TABLE[((uint32_t)res - 1)](cpu, mem, res >> 32);
+    }
   } while (this->contains(cpu.pc));
   return cpu.pc;
 }

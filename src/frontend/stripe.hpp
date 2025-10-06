@@ -6,7 +6,7 @@
 #include <span>
 #include <vector>
 
-typedef void (*Func)(Cpu &cpu, Memory &mem);
+typedef uint64_t (*Func)(Cpu &cpu, Memory &mem);
 
 class Stripe {
   std::vector<size_t> PC2offset;

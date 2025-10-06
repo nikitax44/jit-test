@@ -1,4 +1,5 @@
 #include "../runtime/syscall.hpp"
+#include "platform.hpp"
 #include "types.hpp"
 #include <asmjit/x86/x86assembler.h>
 #include <cstddef>
@@ -6,37 +7,42 @@
 #include <cstdlib>
 #include <stdexcept>
 
-#if !defined(__x86_64__) && !defined(_M_X64)
-#error "This code requires x86-64 architecture"
-#endif
-
-#if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__) ||              \
-    defined(__MINGW64__) || defined(_MSC_VER)
-#define ABI_FASTCALL64
+#if defined(ABI_FASTCALL64)
 #define REG_CPU asmjit::x86::rcx
 #define REG_MEM asmjit::x86::rdx
 #define REG_ARG3 asmjit::x86::r8
 #define REG_STACK asmjit::x86::rsp
 
-#define REG_RRET asmjit::x86::rax
+#define REG_ZRET asmjit::x86::rax
 #define REG_ERET asmjit::x86::eax
 #define REG_LRET asmjit::x86::al
 
 #define REG_RBUF asmjit::x86::r9
 #define REG_EBUF asmjit::x86::r9d
 
-#else
-#define ABI_SYSV
+#elif defined(ABI_SYSV)
 #define REG_CPU asmjit::x86::rdi
 #define REG_MEM asmjit::x86::rsi
 #define REG_ARG3 asmjit::x86::rdx
 #define REG_STACK asmjit::x86::rsp
 
-#define REG_RRET asmjit::x86::rax
+#define REG_ZRET asmjit::x86::rax
 #define REG_ERET asmjit::x86::eax
 #define REG_LRET asmjit::x86::al
 
 #define REG_RBUF asmjit::x86::rcx
+#define REG_EBUF asmjit::x86::ecx
+
+#elif defined(ABI_CDECL)
+#define REG_CPU asmjit::x86::edi
+#define REG_MEM asmjit::x86::esi
+#define REG_ARG3 asmjit::x86::edx
+#define REG_STACK asmjit::x86::esp
+
+#define REG_ZRET asmjit::x86::eax
+#define REG_ERET asmjit::x86::eax
+#define REG_LRET asmjit::x86::al
+
 #define REG_EBUF asmjit::x86::ecx
 #endif
 
@@ -68,10 +74,12 @@ struct Insn_A {
       auto didJump = a.newLabel();
       a.jz(didJump);
       a.mov(PC, pc + sizeof(InsnWrap));
+      a.mov(REG_ERET, 0);
       a.ret();
 
       a.bind(didJump);
       a.mov(PC, target);
+      a.mov(REG_ERET, 0);
       a.ret();
     } else if (this->opcode() == Opcode::SLTI) {
       int32_t imm = this->imm16;
@@ -204,41 +212,39 @@ struct Insn_SYSCALL {
   Insn_SYSCALL(uint32_t bits)
       : _opcode(bits >> 26), code(bits >> 6), _func(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr pc) const {
-    a.push(REG_CPU);
+    a.mov(PC, pc); // cpu.pc = pc
+
     a.push(REG_MEM);
+    a.push(REG_CPU);
     // sp%16 == 8
 #ifdef ABI_FASTCALL64
     a.sub(REG_STACK, 40); // 32 bytes of shadow space
-#else
+#elif ABI_SYSV
     a.sub(REG_STACK, 8);
 #endif
     // sp%16 == 0
-    a.mov(PC, pc); // cpu.pc = pc
-    a.mov(REG_RRET, (size_t)syscall_impl);
-    a.call(REG_RRET);
+    a.mov(REG_ZRET, (size_t)syscall_impl);
+    a.call(REG_ZRET);
 
 #ifdef ABI_FASTCALL64
     a.add(REG_STACK, 40);
-#else
+#elif ABI_SYSV
     a.add(REG_STACK, 8);
 #endif
-    a.pop(REG_MEM);
+
+#ifdef ABI_CDECL
+    a.add(REG_STACK, 4 * 2);
+#else
     a.pop(REG_CPU);
+    a.pop(REG_MEM);
+#endif
 
     auto end = a.newLabel();
 
     // rax contains the payload:tag
-    a.sub(REG_RRET, 1);
-    a.jl(end); // if tag==TAG_NOP: do nothing
-
-    a.mov(REG_ARG3, REG_RRET);
-    a.shr(REG_ARG3, 32);       // ARG3 is the payload
-    a.mov(REG_ERET, REG_ERET); // REG_RET is the tag
-    a.mov(REG_RBUF, (size_t)TABLE);
-    // tailcall TABLE[tag-1](CPU, MEM, payload)
-    // jmp ((uint64_t*)REG_RBUF)[REG_RRET]
-    a.jmp(asmjit::x86::Mem(REG_RBUF, REG_RRET, 3, 0));
-
+    a.test(REG_ERET, REG_ERET);
+    a.jz(end); // if tag==TAG_NOP: do nothing
+    a.ret();
     a.bind(end);
   }
 };
@@ -256,6 +262,7 @@ struct Insn_J {
     Addr dest = this->jump_dest(pc);
 
     a.mov(PC, dest);
+    a.mov(REG_ERET, 0);
     a.ret();
   }
 };
