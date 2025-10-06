@@ -3,3 +3,4 @@
 !.gitignore
 build.ninja
 perf.data*
+!.clang-format

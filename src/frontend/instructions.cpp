@@ -8,42 +8,35 @@
 #include <stdexcept>
 
 #if defined(ABI_FASTCALL64)
-#define REG_CPU asmjit::x86::rcx
-#define REG_MEM asmjit::x86::rdx
-#define REG_ARG3 asmjit::x86::r8
-#define REG_STACK asmjit::x86::rsp
+#  define REG_CPU asmjit::x86::rcx
+#  define REG_MEM asmjit::x86::rdx
+#  define REG_STACK asmjit::x86::rsp
 
-#define REG_ZRET asmjit::x86::rax
-#define REG_ERET asmjit::x86::eax
-#define REG_LRET asmjit::x86::al
+#  define REG_ZRET asmjit::x86::rax
+#  define REG_ERET asmjit::x86::eax
+#  define REG_LRET asmjit::x86::al
 
-#define REG_RBUF asmjit::x86::r9
-#define REG_EBUF asmjit::x86::r9d
-
+#  define REG_EBUF asmjit::x86::r9d
 #elif defined(ABI_SYSV)
-#define REG_CPU asmjit::x86::rdi
-#define REG_MEM asmjit::x86::rsi
-#define REG_ARG3 asmjit::x86::rdx
-#define REG_STACK asmjit::x86::rsp
+#  define REG_CPU asmjit::x86::rdi
+#  define REG_MEM asmjit::x86::rsi
+#  define REG_STACK asmjit::x86::rsp
 
-#define REG_ZRET asmjit::x86::rax
-#define REG_ERET asmjit::x86::eax
-#define REG_LRET asmjit::x86::al
+#  define REG_ZRET asmjit::x86::rax
+#  define REG_ERET asmjit::x86::eax
+#  define REG_LRET asmjit::x86::al
 
-#define REG_RBUF asmjit::x86::rcx
-#define REG_EBUF asmjit::x86::ecx
-
+#  define REG_EBUF asmjit::x86::ecx
 #elif defined(ABI_CDECL)
-#define REG_CPU asmjit::x86::edi
-#define REG_MEM asmjit::x86::esi
-#define REG_ARG3 asmjit::x86::edx
-#define REG_STACK asmjit::x86::esp
+#  define REG_CPU asmjit::x86::edi
+#  define REG_MEM asmjit::x86::esi
+#  define REG_STACK asmjit::x86::esp
 
-#define REG_ZRET asmjit::x86::eax
-#define REG_ERET asmjit::x86::eax
-#define REG_LRET asmjit::x86::al
+#  define REG_ZRET asmjit::x86::eax // 64-bit values are returned as edx:eax
+#  define REG_ERET asmjit::x86::eax
+#  define REG_LRET asmjit::x86::al
 
-#define REG_EBUF asmjit::x86::ecx
+#  define REG_EBUF asmjit::x86::ecx
 #endif
 
 #define VAR(var) /* size = 4 */                                                \
@@ -216,13 +209,13 @@ struct Insn_SYSCALL {
 
     a.push(REG_MEM);
     a.push(REG_CPU);
-    // sp%16 == 8
+    // sp%16 == 8 on 64-bit systems
 #ifdef ABI_FASTCALL64
     a.sub(REG_STACK, 40); // 32 bytes of shadow space
 #elif ABI_SYSV
     a.sub(REG_STACK, 8);
 #endif
-    // sp%16 == 0
+    // sp%16 == 0 on 64-bit systems
     a.mov(REG_ZRET, (size_t)syscall_impl);
     a.call(REG_ZRET);
 
@@ -241,9 +234,9 @@ struct Insn_SYSCALL {
 
     auto end = a.newLabel();
 
-    // rax contains the payload:tag
     a.test(REG_ERET, REG_ERET);
     a.jz(end); // if tag==TAG_NOP: do nothing
+    // PC is already set, rax/edx:eax must persist
     a.ret();
     a.bind(end);
   }

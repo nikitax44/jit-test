@@ -62,11 +62,13 @@ Addr Stripe::invoke(Cpu &cpu, Memory &mem) const {
     assert(idx < this->PC2offset.size());
     size_t off = this->PC2offset[idx];
     Func func = (Func)((size_t)fn + off);
+
 #ifdef ABI_CDECL
     uint64_t res = cdecl2sysv32(func, cpu, mem);
 #else
     uint64_t res = func(cpu, mem);
 #endif
+
     if ((uint32_t)res != 0) {
       TABLE[((uint32_t)res - 1)](cpu, mem, res >> 32);
     }

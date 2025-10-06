@@ -1,12 +1,14 @@
-#ifdef __i386__
+#include "platform.hpp"
 
-#if defined(_WIN32) || defined(__MINGW32__)
+#ifdef ABI_CDECL
+
+#if PLAT_OS_WIN32
 #define cdecl2sysv32 _cdecl2sysv32
 #endif
 
     .intel_syntax noprefix
     .globl  cdecl2sysv32
-#if defined(_WIN32) || defined(__MINGW32__)
+#if PLAT_OS_WIN32
     .def    cdecl2sysv32; .scl 2; .type 32; .endef
 #else
     .type   cdecl2sysv32, @function
@@ -27,6 +29,6 @@ cdecl2sysv32:
     ret
 #endif
 
-#if !defined(_WIN32) && !defined(_WIN64) && !defined(__MINGW32__) && !defined(__MINGW64__) && !defined(_MSC_VER)
+#if !defined(PLAT_OS_WIN32) && !defined(PLAT_OS_WIN64)
     .section .note.GNU-stack,"",@progbits
 #endif
