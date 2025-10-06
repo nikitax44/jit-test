@@ -1,16 +1,16 @@
 #include "../frontend/types.hpp"
 #include <cstdint>
 
-extern "C" uint64_t syscall_impl(Memory &mem, Addr PC);
+extern "C" uint64_t syscall_impl(Cpu &cpu, Memory &mem);
 
-Addr tailcall_jmp(Memory &mem, uint32_t Addr);
-Addr tailcall_exit(Memory &mem, uint32_t payload);
+static void tailcall_nop(Cpu &cpu, Memory &mem, uint32_t Addr) {}
+void tailcall_exit(Cpu &cpu, Memory &mem, uint32_t payload);
 
 #define NOP_TAG 0
-#define JMP_TAG 1
+#define TAIL_NOP_TAG 1
 #define EXIT_TAG 2
-typedef Addr (*tailcall_handler)(Memory &mem, uint32_t payload);
-static tailcall_handler TABLE[2] = {tailcall_jmp, tailcall_exit};
+typedef void (*tailcall_handler)(Cpu &cpu, Memory &mem, uint32_t payload);
+static tailcall_handler TABLE[2] = {tailcall_nop, tailcall_exit};
 
 enum class Syscall : Reg {
   Syscall_Debug = 0,

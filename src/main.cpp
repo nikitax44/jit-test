@@ -77,7 +77,8 @@ int main(int argc, char **argv) {
   Code code(ops);
 
   try {
-    code.run(memory);
+    Cpu cpu = {0};
+    code.run(cpu, memory);
   } catch (exit_exception exc) {
     std::cout << "exit" << std::endl;
     return exc.status();

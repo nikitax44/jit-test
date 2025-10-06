@@ -2,13 +2,12 @@
 #include <format>
 #include <memory>
 
-void Code::run(Memory &mem) {
-  Addr PC = 0;
+void Code::run(Cpu &cpu, Memory &mem) {
   std::optional<std::shared_ptr<Stripe>> prev;
-  auto stripe = this->get(PC);
+  auto stripe = this->get(cpu.pc);
   while (true) {
     if (!stripe.has_value()) {
-      stripe = this->decode(PC);
+      stripe = this->decode(cpu.pc);
       this->insertStripe(stripe.value());
     }
 
@@ -18,18 +17,18 @@ void Code::run(Memory &mem) {
     }
     prev = s;
 
-    PC = s->invoke(PC, mem);
+    cpu.pc = s->invoke(cpu, mem);
     if (!s->next.has_value()) {
       // no prediction
-      stripe = this->get(PC);
+      stripe = this->get(cpu.pc);
       continue;
     }
 
     auto next = s->next.value().lock();
 
-    if (!next || !next->contains(PC)) {
+    if (!next || !next->contains(cpu.pc)) {
       // branch mispredict or predicted stripe expired
-      stripe = this->get(PC);
+      stripe = this->get(cpu.pc);
       continue;
     }
     stripe = next;
@@ -55,12 +54,12 @@ std::shared_ptr<Stripe> Code::decode(Addr start) const {
   return stripe;
 }
 
-std::optional<std::shared_ptr<Stripe>> Code::get(Addr PC) const {
-  auto it = code.lower_bound(PC);
+std::optional<std::shared_ptr<Stripe>> Code::get(Addr pc) const {
+  auto it = code.lower_bound(pc);
   if (it == code.end())
     return {};
   const std::shared_ptr<Stripe> &stripe = it->second;
-  if (PC >= stripe->startPC()) {
+  if (pc >= stripe->startPC()) {
     return {stripe};
   } else {
     return {};

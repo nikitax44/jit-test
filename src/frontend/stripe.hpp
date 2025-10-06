@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-typedef Addr (*Func)(Memory &mem);
+typedef void (*Func)(Cpu &cpu, Memory &mem);
 
 class Stripe {
   std::vector<size_t> PC2offset;
@@ -29,8 +29,8 @@ public:
   Addr startPC() const { return this->start_PC; }
   Addr endPC() const { return this->end_PC; }
 
-  inline bool contains(Addr PC) const { return start_PC <= PC && PC <= end_PC; }
+  inline bool contains(Addr pc) const { return start_PC <= pc && pc <= end_PC; }
 
-  Addr invoke(Addr PC, Memory &mem) const;
+  Addr invoke(Cpu &cpu, Memory &mem) const;
   mutable std::optional<std::weak_ptr<Stripe>> next;
 };

@@ -12,7 +12,7 @@ class Code {
   std::map<Addr, std::shared_ptr<Stripe>> code;
   std::span<InsnWrap> insns;
 
-  std::optional<std::shared_ptr<Stripe>> get(Addr PC) const;
+  std::optional<std::shared_ptr<Stripe>> get(Addr pc) const;
   std::shared_ptr<Stripe> decode(Addr start) const;
 
   void insertStripe(std::shared_ptr<Stripe> stripe) {
@@ -27,5 +27,5 @@ public:
     }
   }
 
-  void run(Memory &mem);
+  void run(Cpu &cpu, Memory &mem);
 };

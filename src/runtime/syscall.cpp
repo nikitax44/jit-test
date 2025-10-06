@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 #define NOP NOP_TAG
-#define JMP(addr) ((((uint64_t)(addr)) << 32) | JMP_TAG)
+#define TAIL_NOP TAIL_NOP_TAG
 #define EXIT(addr) ((((uint64_t)(addr)) << 32) | EXIT_TAG)
 
-extern "C" uint64_t syscall_impl(Memory &mem, Addr PC) {
-  Reg(&regs)[regN] = mem.reg;
+extern "C" uint64_t syscall_impl(Cpu &cpu, Memory &mem) {
+  Reg(&regs)[regN] = cpu.reg;
   Reg id = regs[8];
   uint8_t *memory = mem.memory;
   switch ((Syscall)id) {
@@ -62,10 +62,10 @@ extern "C" uint64_t syscall_impl(Memory &mem, Addr PC) {
     std::cout << regs[0] << std::endl;
     break;
   case Syscall::Syscall_Jmp: {
-    Addr ret = PC + sizeof(InsnWrap);
-    PC = regs[0];
+    Addr ret = cpu.pc + sizeof(InsnWrap);
+    cpu.pc = regs[0];
     regs[0] = ret;
-    return JMP(PC);
+    return TAIL_NOP;
   } break;
 
   default:
