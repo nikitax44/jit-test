@@ -37,20 +37,21 @@ void Code::run(Memory &mem) {
 }
 
 std::shared_ptr<Stripe> Code::decode(Addr start) const {
-  if (start / 4 >= this->insns.size()) {
-    throw std::runtime_error(std::format(
-        "Code execution out of bounds: start={}, this->insns.size()*4={}",
-        start, this->insns.size() * 4));
+  if (start >= this->insns.size() * sizeof(InsnWrap)) {
+    throw std::runtime_error(
+        std::format("Code execution out of bounds: start={}, "
+                    "this->insns.size()*sizeof(InsnWrap)={}",
+                    start, this->insns.size() * sizeof(InsnWrap)));
   }
 
-  size_t ip = start / 4;
+  size_t ip = start / sizeof(InsnWrap);
 
   for (; ip != this->insns.size() - 1 && !insns[ip].is_branch(); ++ip) {
     // do nothing, go on
   }
 
   std::shared_ptr<Stripe> stripe =
-      std::make_shared<Stripe>(insns, start, ip * 4);
+      std::make_shared<Stripe>(insns, start, ip * sizeof(InsnWrap));
   return stripe;
 }
 

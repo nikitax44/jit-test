@@ -4,24 +4,25 @@
 #include <asmjit/x86/x86operand.h>
 #include <cstdint>
 #include <cstdlib>
+#include <stdexcept>
 
-#define VAR(var) asmjit::x86::Mem(asmjit::x86::rdi, 4 * (var))
+#define VAR(var) asmjit::x86::Mem(asmjit::x86::rdi, sizeof(InsnWrap) * (var))
 #define LD(target, var) a.mov((target), VAR(var))
 #define ST(source, var) a.mov(VAR(var), (source))
 #define MEM(base, offset) /* scale=1 */                                        \
-  asmjit::x86::Mem(asmjit::x86::rdi, (base), 0, 4 * 32 + (offset))
+  asmjit::x86::Mem(asmjit::x86::rdi, (base), 0, sizeof(Reg) * regN + (offset))
 
 struct Insn_A {
-  unsigned opcode : 6;
+  unsigned _opcode : 6;
   unsigned rs : 5;
   unsigned rt : 5;
   signed imm16 : 16;
   Insn_A(uint32_t bits)
-      : opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), imm16(bits) {}
+      : _opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), imm16(bits) {}
   inline Addr jump_dest(Addr PC) const { return PC + (((int32_t)imm16) << 2); }
+  inline Opcode opcode() const { return Opcode(this->_opcode); }
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
-    if (this->opcode == 0b010011) {
-      // BEQ
+    if (this->opcode() == Opcode::BEQ) {
       Addr target = this->jump_dest(PC);
       LD(asmjit::x86::eax, this->rs);
       LD(asmjit::x86::edx, this->rt);
@@ -29,131 +30,142 @@ struct Insn_A {
 
       auto didJump = a.newLabel();
       a.jz(didJump);
-      a.mov(asmjit::x86::eax, PC + 4);
+      a.mov(asmjit::x86::eax, PC + sizeof(InsnWrap));
       a.ret();
 
       a.bind(didJump);
       a.mov(asmjit::x86::eax, target);
       a.ret();
-    } else {
-      // SLTI
+    } else if (this->opcode() == Opcode::SLTI) {
       int32_t imm = this->imm16;
       LD(asmjit::x86::eax, this->rs);
       a.cmp(asmjit::x86::eax, imm);
       a.setl(asmjit::x86::al);                    //  al=(uint8_t)(X[rs]<imm)
       a.movzx(asmjit::x86::eax, asmjit::x86::al); // eax=(uint32_t)al
       ST(asmjit::x86::eax, this->rt);
+    } else {
+      throw std::logic_error("Invalid opcode in Insn_A: ");
     }
   }
 };
 
 struct Insn_B {
-  unsigned opcode : 6;
+  unsigned _opcode : 6;
   unsigned rd : 5;   // base
   unsigned rs : 5;   // rt1
   unsigned imm5 : 5; // rt2
   signed imm11 : 11;
   Insn_B(uint32_t bits)
-      : opcode(bits >> 26), rd(bits >> 21), rs(bits >> 16), imm5(bits >> 11),
+      : _opcode(bits >> 26), rd(bits >> 21), rs(bits >> 16), imm5(bits >> 11),
         imm11(bits) {}
+  inline Opcode opcode() const { return Opcode(this->_opcode); }
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
-    if (this->opcode == 0b100010) {
-      // USAT: clamp to n bits
+    if (this->opcode() == Opcode::USAT) {
+      // clamp value to n bits
       a.int3();
-    } else if (this->opcode == 0b111001) {
-      // STP
+    } else if (this->opcode() == Opcode::STP) {
       LD(asmjit::x86::eax, this->rd);
 
       LD(asmjit::x86::edx, this->rs); // rt1
       a.mov(MEM(asmjit::x86::eax, this->imm11), asmjit::x86::edx);
 
       LD(asmjit::x86::edx, this->imm5); // rt2
-      a.mov(MEM(asmjit::x86::eax, this->imm11 + 4), asmjit::x86::edx);
-    } else {
+      a.mov(MEM(asmjit::x86::eax, this->imm11 + sizeof(Reg)), asmjit::x86::edx);
+    } else if (this->opcode() == Opcode::RORI) {
       // RORI
       LD(asmjit::x86::eax, this->rs);
       a.ror(asmjit::x86::eax, this->imm5);
       ST(asmjit::x86::eax, this->rd);
+    } else {
+      throw std::logic_error("Invalid opcode in Insn_B");
     }
   }
 };
 
 struct Insn_C {
-  unsigned opcode : 6;
+  unsigned _opcode : 6;
   unsigned base : 5;
   unsigned rt : 5;
   signed offset : 16;
   Insn_C(uint32_t bits)
-      : opcode(bits >> 26), base(bits >> 21), rt(bits >> 16), offset(bits) {}
+      : _opcode(bits >> 26), base(bits >> 21), rt(bits >> 16), offset(bits) {}
+  inline Opcode opcode() const { return Opcode(this->_opcode); }
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
-    if (this->opcode == 0b100011) {
-      // LD
+    if (this->opcode() == Opcode::LD) {
       LD(asmjit::x86::eax, this->base);
       a.mov(asmjit::x86::eax, MEM(asmjit::x86::eax, this->offset));
       ST(asmjit::x86::eax, this->rt);
-    } else {
-      // ST
+    } else if (this->opcode() == Opcode::ST) {
       LD(asmjit::x86::eax, this->base);
       LD(asmjit::x86::edx, this->rt);
       a.mov(MEM(asmjit::x86::eax, this->offset), asmjit::x86::edx);
+    } else {
+      throw std::logic_error("Invalid opcode in Insn_C");
     }
   }
 };
 
 struct Insn_D {
-  unsigned opcode : 6;
+  unsigned _opcode : 6;
   unsigned rs : 5;
   unsigned rt : 5;
   unsigned rd : 5;
   unsigned zero : 5;
-  unsigned func : 6;
+  unsigned _func : 6;
   Insn_D(uint32_t bits)
-      : opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), rd(bits >> 11),
-        zero(bits >> 6), func(bits) {}
+      : _opcode(bits >> 26), rs(bits >> 21), rt(bits >> 16), rd(bits >> 11),
+        zero(bits >> 6), _func(bits) {}
+  inline Opcode opcode() const { return Opcode(this->_opcode); }
+  inline OpcodeFunc func() const { return OpcodeFunc(this->_func); }
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
-    if (this->func == 0b000100) {
-      // MOVZ
+    if (this->opcode() != Opcode::FUNC) {
+      throw std::logic_error("Insn_D's opcode is not FUNC");
+    }
+
+    if (this->func() == OpcodeFunc::MOVZ) {
       // if X[rt]==0 { X[rd]=X[rs]; } else { X[rd]=X[rd] }
       LD(asmjit::x86::eax, this->rt);
       LD(asmjit::x86::edx, this->rd);
       a.test(asmjit::x86::eax, asmjit::x86::eax);
       a.cmovz(asmjit::x86::edx, VAR(this->rs));
       ST(asmjit::x86::edx, this->rd);
-    } else if (this->func == 0b011111) {
+    } else if (this->func() == OpcodeFunc::SUB) {
       // SUB
       LD(asmjit::x86::eax, this->rs);
       LD(asmjit::x86::edx, this->rt);
       a.sub(asmjit::x86::eax, asmjit::x86::edx);
       ST(asmjit::x86::eax, this->rd);
-    } else {
+    } else if (this->func() == OpcodeFunc::ADD) {
       // ADD
       LD(asmjit::x86::eax, this->rs);
       LD(asmjit::x86::edx, this->rt);
       a.add(asmjit::x86::eax, asmjit::x86::edx);
       ST(asmjit::x86::eax, this->rd);
+    } else {
+      throw std::logic_error("Invalid func in Insn_D");
     }
   }
 };
 
 struct Insn_E {
-  unsigned opcode : 6;
+  unsigned _opcode : 6;
   unsigned rd : 5;
   unsigned rs1 : 5;
   unsigned rs2 : 5;
   unsigned zero : 5;
-  unsigned func : 6;
+  unsigned _func : 6;
   Insn_E(uint32_t bits)
-      : opcode(bits >> 26), rd(bits >> 21), rs1(bits >> 16), rs2(bits >> 11),
-        zero(bits >> 6), func(bits) {}
+      : _opcode(bits >> 26), rd(bits >> 21), rs1(bits >> 16), rs2(bits >> 11),
+        zero(bits >> 6), _func(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr PC) const { a.int3(); }
 };
 
 struct Insn_SYSCALL {
-  unsigned opcode : 6 = 0;
+  unsigned _opcode : 6;
   unsigned code : 20;
-  unsigned func : 6 = 0b011001;
+  unsigned _func : 6;
   Insn_SYSCALL(uint32_t bits)
-      : opcode(bits >> 26), code(bits >> 6), func(bits) {}
+      : _opcode(bits >> 26), code(bits >> 6), _func(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr PC) const {
     // rsp%16 == 8 because last thing pushed was return address
     a.push(asmjit::x86::rdi);
@@ -181,9 +193,9 @@ struct Insn_SYSCALL {
 };
 
 struct Insn_J {
-  unsigned opcode : 6 = 0b010110;
+  unsigned _opcode : 6;
   unsigned index : 26;
-  Insn_J(uint32_t bits) : opcode(bits >> 26), index(bits) {}
+  Insn_J(uint32_t bits) : _opcode(bits >> 26), index(bits) {}
 
   inline Addr jump_dest(Addr PC) const {
     Addr base = (PC >> 28) << 28;
@@ -214,16 +226,16 @@ struct Insn_ILLEGAL {
 };
 
 static void transpile_func(InsnWrap insn, asmjit::x86::Assembler &a, Addr PC) {
-  switch (insn.bits & 0b111111) {
-  case 0b000100: // MOVZ
-  case 0b011111: // SUB
-  case 0b011010: // ADD
+  switch (OpcodeFunc(insn.bits & 0b111111)) {
+  case OpcodeFunc::MOVZ:
+  case OpcodeFunc::SUB:
+  case OpcodeFunc::ADD:
     return Insn_D(insn.bits).transpile(a, PC);
 
-  case 0b000011: // SELC
-  case 0b011101: // RBIT
+  case OpcodeFunc::SELC:
+  case OpcodeFunc::RBIT:
     return Insn_E(insn.bits).transpile(a, PC);
-  case 0b011001: // SYSCALL
+  case OpcodeFunc::SYSCALL:
     return Insn_SYSCALL(insn.bits).transpile(a, PC);
   default:
     return Insn_ILLEGAL(insn.bits).transpile(a, PC);
@@ -232,23 +244,23 @@ static void transpile_func(InsnWrap insn, asmjit::x86::Assembler &a, Addr PC) {
 
 static void transpile_insn(InsnWrap insn, asmjit::x86::Assembler &a, Addr PC) {
   switch (insn.opcode()) {
-  case 0:
+  case Opcode::FUNC:
     return transpile_func(insn, a, PC);
 
-  case 0b010011: // BEQ
-  case 0b111011: // SLTI
+  case Opcode::BEQ:
+  case Opcode::SLTI:
     return Insn_A(insn.bits).transpile(a, PC);
 
-  case 0b100010: // USAT
-  case 0b111001: // STP
-  case 0b001100: // RORI
+  case Opcode::USAT:
+  case Opcode::STP:
+  case Opcode::RORI:
     return Insn_B(insn.bits).transpile(a, PC);
 
-  case 0b100011: // LD
-  case 0b100101: // ST
+  case Opcode::LD:
+  case Opcode::ST:
     return Insn_C(insn.bits).transpile(a, PC);
 
-  case 0b010110: // J
+  case Opcode::J:
     return Insn_J(insn.bits).transpile(a, PC);
 
   default:
@@ -262,9 +274,9 @@ void InsnWrap::transpile(asmjit::x86::Assembler &a, Addr PC) const {
 
 std::optional<Addr> InsnWrap::jump_dest(Addr PC) const {
   switch (opcode()) {
-  case 0b010011: // BEQ
+  case Opcode::BEQ:
     return Insn_A(bits).jump_dest(PC);
-  case 0b010110: // J
+  case Opcode::J:
     return Insn_J(bits).jump_dest(PC);
 
   default:
@@ -272,7 +284,7 @@ std::optional<Addr> InsnWrap::jump_dest(Addr PC) const {
   }
 }
 std::optional<Addr> InsnWrap::const_jump(Addr PC) const {
-  if (opcode() == 0b010110) {
+  if (opcode() == Opcode::J) {
     return Insn_J(bits).jump_dest(PC);
   }
   return {};

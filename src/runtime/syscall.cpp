@@ -10,11 +10,11 @@
 #define EXIT(addr) ((((uint64_t)(addr)) << 32) | EXIT_TAG)
 
 extern "C" uint64_t syscall_impl(Memory &mem, Addr PC) {
-  uint32_t(&regs)[32] = mem.reg;
-  uint32_t id = regs[8];
+  Reg(&regs)[regN] = mem.reg;
+  Reg id = regs[8];
   uint8_t *memory = mem.memory;
-  switch (id) {
-  case 0:
+  switch ((Syscall)id) {
+  case Syscall::Syscall_Debug:
     std::cerr << "  R0 =" << std::setw(5) << regs[0] //
               << ", R1 =" << std::setw(5) << regs[1] //
               << ", R2 =" << std::setw(5) << regs[2] //
@@ -53,16 +53,16 @@ extern "C" uint64_t syscall_impl(Memory &mem, Addr PC) {
 
     std::cerr << std::endl;
     break;
-  case 1:
+  case Syscall::Syscall_Exit:
     return EXIT(regs[0]);
-  case 4:
+  case Syscall::Syscall_Write:
     regs[0] = write(regs[0], &memory[regs[1]], regs[2]);
     break;
-  case 99:
+  case Syscall::Syscall_Put_uint32_t:
     std::cout << regs[0] << std::endl;
     break;
-  case 100: {
-    Addr ret = PC + 4;
+  case Syscall::Syscall_Jmp: {
+    Addr ret = PC + sizeof(InsnWrap);
     PC = regs[0];
     regs[0] = ret;
     return JMP(PC);

@@ -8,20 +8,21 @@
 
 Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
     : PC2offset(), start_PC(start_PC), end_PC(end_PC), rt() {
-  assert(end_PC / 4 < insns.size());
-  auto branch = insns[end_PC / 4];
+  assert(end_PC < insns.size() * sizeof(InsnWrap));
+  auto branch = insns[end_PC / sizeof(InsnWrap)];
   this->const_next = branch.const_jump(end_PC);
 
   asmjit::CodeHolder code;
   code.init(rt.environment(), rt.cpuFeatures());
 
   asmjit::x86::Assembler a(&code);
-  PC2offset.resize((end_PC - start_PC) / 4 + 1);
+  PC2offset.resize((end_PC - start_PC) / sizeof(InsnWrap) + 1);
 
-  for (size_t PC = start_PC; PC <= end_PC; PC += 4) {
-    PC2offset[(PC - start_PC) / 4] = a.offset(); // faster than push_back
+  for (size_t PC = start_PC; PC <= end_PC; PC += sizeof(InsnWrap)) {
+    PC2offset[(PC - start_PC) / sizeof(InsnWrap)] =
+        a.offset(); // faster than push_back
 
-    auto insn = insns[PC / 4];
+    auto insn = insns[PC / sizeof(InsnWrap)];
     insn.transpile(a, PC);
   }
   a.ud2(); // just to be safe
@@ -48,7 +49,7 @@ Addr Stripe::invoke(Addr PC, Memory &mem) const {
         std::format("invoke: PC out of stripe: PC={}", PC));
   }
   do {
-    size_t idx = (PC - start_PC) / 4;
+    size_t idx = (PC - start_PC) / sizeof(InsnWrap);
     assert(idx < this->PC2offset.size());
     size_t off = this->PC2offset[idx];
     Func func = (Func)((size_t)fn + off);
