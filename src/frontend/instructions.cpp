@@ -8,10 +8,21 @@
 #include <cstdlib>
 #include <stdexcept>
 
-#define VAR(var) /* size=4 */                                                  \
-  asmjit::x86::Mem(asmjit::x86::rdi, sizeof(Reg) * (var), 2)
+#define REG_CPU asmjit::x86::rdi
+#define REG_MEM asmjit::x86::rsi
+#define REG_ARG3 asmjit::x86::rdx
+#define REG_STACK asmjit::x86::rsp
+
+#define REG_RRET asmjit::x86::rax
+#define REG_ERET asmjit::x86::eax
+#define REG_LRET asmjit::x86::al
+
+#define REG_RBUF asmjit::x86::rcx
+#define REG_EBUF asmjit::x86::ecx
+
+#define VAR(var) /* size=4 */ asmjit::x86::Mem(REG_CPU, sizeof(Reg) * (var), 2)
 #define MEM(base, offset) /* scale=1 */                                        \
-  asmjit::x86::Mem(asmjit::x86::rsi, (base), 0, sizeof(Reg) * regN + (offset))
+  asmjit::x86::Mem(REG_MEM, (base), 0, sizeof(Reg) * regN + (offset))
 #define PC VAR(32)
 
 static_assert(offsetof(Cpu, pc) == 32 * sizeof(Reg),
@@ -29,9 +40,9 @@ struct Insn_A {
   void transpile(asmjit::x86::Assembler &a, Addr pc) const {
     if (this->opcode() == Opcode::BEQ) {
       Addr target = this->jump_dest(pc);
-      a.mov(asmjit::x86::eax, VAR(this->rs));
-      a.mov(asmjit::x86::edx, VAR(this->rt));
-      a.cmp(asmjit::x86::eax, asmjit::x86::edx);
+      a.mov(REG_ERET, VAR(this->rs));
+      a.mov(REG_EBUF, VAR(this->rt));
+      a.cmp(REG_ERET, REG_EBUF);
 
       auto didJump = a.newLabel();
       a.jz(didJump);
@@ -43,11 +54,11 @@ struct Insn_A {
       a.ret();
     } else if (this->opcode() == Opcode::SLTI) {
       int32_t imm = this->imm16;
-      a.mov(asmjit::x86::eax, VAR(this->rs));
-      a.cmp(asmjit::x86::eax, imm);
-      a.setl(asmjit::x86::al);                    //  al=(uint8_t)(X[rs]<imm)
-      a.movzx(asmjit::x86::eax, asmjit::x86::al); // eax=(uint32_t)al
-      a.mov(VAR(this->rt), asmjit::x86::eax);
+      a.mov(REG_ERET, VAR(this->rs));
+      a.cmp(REG_ERET, imm);
+      a.setl(REG_LRET);            //  al=(uint8_t)(X[rs]<imm)
+      a.movzx(REG_ERET, REG_LRET); // eax=(uint32_t)al
+      a.mov(VAR(this->rt), REG_ERET);
     } else {
       throw std::logic_error("Invalid opcode in Insn_A: ");
     }
@@ -69,18 +80,18 @@ struct Insn_B {
       // clamp value to n bits
       a.int3();
     } else if (this->opcode() == Opcode::STP) {
-      a.mov(asmjit::x86::eax, VAR(this->rd));
+      a.mov(REG_ERET, VAR(this->rd));
 
-      a.mov(asmjit::x86::edx, VAR(this->rs)); // rt1
-      a.mov(MEM(asmjit::x86::eax, this->imm11), asmjit::x86::edx);
+      a.mov(REG_EBUF, VAR(this->rs)); // rt1
+      a.mov(MEM(REG_ERET, this->imm11), REG_EBUF);
 
-      a.mov(asmjit::x86::edx, VAR(this->imm5)); // rt2
-      a.mov(MEM(asmjit::x86::eax, this->imm11 + sizeof(Reg)), asmjit::x86::edx);
+      a.mov(REG_EBUF, VAR(this->imm5)); // rt2
+      a.mov(MEM(REG_ERET, this->imm11 + sizeof(Reg)), REG_EBUF);
     } else if (this->opcode() == Opcode::RORI) {
       // RORI
-      a.mov(asmjit::x86::eax, VAR(this->rs));
-      a.ror(asmjit::x86::eax, this->imm5);
-      a.mov(VAR(this->rd), asmjit::x86::eax);
+      a.mov(REG_ERET, VAR(this->rs));
+      a.ror(REG_ERET, this->imm5);
+      a.mov(VAR(this->rd), REG_ERET);
     } else {
       throw std::logic_error("Invalid opcode in Insn_B");
     }
@@ -97,13 +108,13 @@ struct Insn_C {
   inline Opcode opcode() const { return Opcode(this->_opcode); }
   void transpile(asmjit::x86::Assembler &a, Addr pc) const {
     if (this->opcode() == Opcode::LD) {
-      a.mov(asmjit::x86::eax, VAR(this->base));
-      a.mov(asmjit::x86::eax, MEM(asmjit::x86::eax, this->offset));
-      a.mov(VAR(this->rt), asmjit::x86::eax);
+      a.mov(REG_ERET, VAR(this->base));
+      a.mov(REG_ERET, MEM(REG_ERET, this->offset));
+      a.mov(VAR(this->rt), REG_ERET);
     } else if (this->opcode() == Opcode::ST) {
-      a.mov(asmjit::x86::eax, VAR(this->base));
-      a.mov(asmjit::x86::edx, VAR(this->rt));
-      a.mov(MEM(asmjit::x86::eax, this->offset), asmjit::x86::edx);
+      a.mov(REG_ERET, VAR(this->base));
+      a.mov(REG_EBUF, VAR(this->rt));
+      a.mov(MEM(REG_ERET, this->offset), REG_EBUF);
     } else {
       throw std::logic_error("Invalid opcode in Insn_C");
     }
@@ -129,23 +140,23 @@ struct Insn_D {
 
     if (this->func() == OpcodeFunc::MOVZ) {
       // if X[rt]==0 { X[rd]=X[rs]; } else { X[rd]=X[rd] }
-      a.mov(asmjit::x86::eax, VAR(this->rt));
-      a.mov(asmjit::x86::edx, VAR(this->rd));
-      a.test(asmjit::x86::eax, asmjit::x86::eax);
-      a.cmovz(asmjit::x86::edx, VAR(this->rs));
-      a.mov(VAR(this->rd), asmjit::x86::edx);
+      a.mov(REG_ERET, VAR(this->rt));
+      a.mov(REG_EBUF, VAR(this->rd));
+      a.test(REG_ERET, REG_ERET);
+      a.cmovz(REG_EBUF, VAR(this->rs));
+      a.mov(VAR(this->rd), REG_EBUF);
     } else if (this->func() == OpcodeFunc::SUB) {
       // SUB
-      a.mov(asmjit::x86::eax, VAR(this->rs));
-      a.mov(asmjit::x86::edx, VAR(this->rt));
-      a.sub(asmjit::x86::eax, asmjit::x86::edx);
-      a.mov(VAR(this->rd), asmjit::x86::eax);
+      a.mov(REG_ERET, VAR(this->rs));
+      a.mov(REG_EBUF, VAR(this->rt));
+      a.sub(REG_ERET, REG_EBUF);
+      a.mov(VAR(this->rd), REG_ERET);
     } else if (this->func() == OpcodeFunc::ADD) {
       // ADD
-      a.mov(asmjit::x86::eax, VAR(this->rs));
-      a.mov(asmjit::x86::edx, VAR(this->rt));
-      a.add(asmjit::x86::eax, asmjit::x86::edx);
-      a.mov(VAR(this->rd), asmjit::x86::eax);
+      a.mov(REG_ERET, VAR(this->rs));
+      a.mov(REG_EBUF, VAR(this->rt));
+      a.add(REG_ERET, REG_EBUF);
+      a.mov(VAR(this->rd), REG_ERET);
     } else {
       throw std::logic_error("Invalid func in Insn_D");
     }
@@ -172,31 +183,32 @@ struct Insn_SYSCALL {
   Insn_SYSCALL(uint32_t bits)
       : _opcode(bits >> 26), code(bits >> 6), _func(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr pc) const {
-    // rsp%16 == 8 because last thing pushed was return address
-    a.push(asmjit::x86::rdi);
-    a.push(asmjit::x86::rsi);
-    a.sub(asmjit::x86::rsp, 8);
-    // rsp%16 == 0
+    a.push(REG_CPU);
+    a.push(REG_MEM);
+    // sp%16 == 8
+    a.sub(REG_STACK, 8);
+    // sp%16 == 0
     a.mov(PC, pc); // cpu.pc = pc
-    a.mov(asmjit::x86::rax, (size_t)syscall_impl);
-    a.call(asmjit::x86::rax);
+    a.mov(REG_RRET, (size_t)syscall_impl);
+    a.call(REG_RRET);
 
-    a.add(asmjit::x86::rsp, 8);
-    a.pop(asmjit::x86::rsi);
-    a.pop(asmjit::x86::rdi);
+    a.add(REG_STACK, 8);
+    a.pop(REG_MEM);
+    a.pop(REG_CPU);
 
     auto end = a.newLabel();
 
     // rax contains the payload:tag
-    a.sub(asmjit::x86::rax, 1);
+    a.sub(REG_RRET, 1);
     a.jl(end); // if tag==TAG_NOP: do nothing
 
-    a.mov(asmjit::x86::rdx, asmjit::x86::rax);
-    a.shr(asmjit::x86::rdx, 32);               // rdx is the payload
-    a.mov(asmjit::x86::eax, asmjit::x86::eax); // rax is the tag
-    a.mov(asmjit::x86::rcx, (size_t)TABLE);
-    // tailcall TABLE[tag-1](rdi, rsi, payload)
-    a.jmp(asmjit::x86::Mem(asmjit::x86::rcx, asmjit::x86::rax, 3, 0));
+    a.mov(REG_ARG3, REG_RRET);
+    a.shr(REG_ARG3, 32);       // ARG3 is the payload
+    a.mov(REG_ERET, REG_ERET); // REG_RET is the tag
+    a.mov(REG_RBUF, (size_t)TABLE);
+    // tailcall TABLE[tag-1](CPU, MEM, payload)
+    // jmp ((uint64_t*)REG_RBUF)[REG_RRET]
+    a.jmp(asmjit::x86::Mem(REG_RBUF, REG_RRET, 3, 0));
 
     a.bind(end);
   }
