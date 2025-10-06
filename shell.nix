@@ -1,5 +1,6 @@
 {pkgs ? import <nixpkgs> {}}: let
   # pkgsCross = pkgs.pkgsCross.mingwW64;
+  # pkgsCross = pkgs.pkgsi686Linux;
   pkgsCross = pkgs;
 in
   pkgsCross.mkShell {

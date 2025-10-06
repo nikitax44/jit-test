@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -e
 cat >build.ninja <<EOF
+cflags = $CFLAGS -std=c++20 -O3 -g3
 rule cxx
-  command = $CXX -std=c++20 -O3 -g3 -MMD -MF \$out.d -c \$in -o \$out \$cflags
+  command = $CXX \$cflags -MMD -MF \$out.d \$in -o \$out -c
   depfile = \$out.d
   deps = gcc
   description = CXX \$out
@@ -25,7 +26,7 @@ objs=()
 shopt -s nullglob
 for file in $(find src/ -type f -name '*.cpp'); do
   obj="build/${file#src/}.o"
-  echo build "$obj" : cxx "$file" >>build.ninja
+  echo "build $obj : cxx $file" >>build.ninja
   objs+=("$obj")
 done
 

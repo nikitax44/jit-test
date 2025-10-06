@@ -40,8 +40,9 @@
 #define REG_EBUF asmjit::x86::ecx
 #endif
 
-#define VAR(var) /* size=4 */ asmjit::x86::Mem(REG_CPU, sizeof(Reg) * (var), 2)
-#define MEM(base, offset) /* scale=1 */                                        \
+#define VAR(var) /* size = 4 */                                                \
+  asmjit::x86::Mem(REG_CPU, sizeof(Reg) * (var), 2)
+#define MEM(base, offset) /* scale = 1 */                                      \
   asmjit::x86::Mem(REG_MEM, (base), 0, sizeof(Reg) * regN + (offset))
 #define PC VAR(32)
 
