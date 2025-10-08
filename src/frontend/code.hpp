@@ -20,6 +20,17 @@ class Code {
     this->code.emplace(endPC, std::move(stripe));
   }
 
+  std::shared_ptr<Stripe> get_or_insert(Addr pc) {
+    auto stripe = this->get(pc);
+    if (stripe.has_value()) {
+      return stripe.value();
+    } else {
+      auto stripe = this->decode(pc);
+      this->insertStripe(stripe);
+      return stripe;
+    }
+  }
+
 public:
   Code(std::span<InsnWrap> insns) : code(), insns(insns) {
     if (insns.size() > std::numeric_limits<Addr>::max()) {
@@ -27,5 +38,5 @@ public:
     }
   }
 
-  void run(Cpu &cpu, Memory &mem);
+  [[noreturn]] void run(Cpu &cpu, Memory &mem);
 };

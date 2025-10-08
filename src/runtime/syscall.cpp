@@ -10,10 +10,11 @@
 #define EXIT(addr) ((((uint64_t)(addr)) << 32) | EXIT_TAG)
 
 extern "C" uint64_t syscall_impl(Cpu &cpu, Memory &mem) {
-  Reg(&regs)[regN] = cpu.reg;
-  Reg id = regs[8];
+  auto &regs = cpu.reg;
+  Syscall id = (Syscall)regs[8];
   uint8_t *memory = mem.memory;
-  switch ((Syscall)id) {
+
+  switch (id) {
   case Syscall::Syscall_Debug:
     std::cerr << "  R0 =" << std::setw(5) << regs[0] //
               << ", R1 =" << std::setw(5) << regs[1] //

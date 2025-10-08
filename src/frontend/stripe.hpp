@@ -29,6 +29,6 @@ public:
 
   inline bool contains(Addr pc) const { return start_PC <= pc && pc <= end_PC; }
 
-  Addr invoke(Cpu &cpu, Memory &mem) const;
+  void invoke(Cpu &cpu, Memory &mem) const;
   mutable std::optional<std::weak_ptr<Stripe>> next;
 };

@@ -52,7 +52,7 @@ Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
   }
 }
 
-Addr Stripe::invoke(Cpu &cpu, Memory &mem) const {
+void Stripe::invoke(Cpu &cpu, Memory &mem) const {
   if (!this->contains(cpu.pc)) {
     throw std::runtime_error(
         std::format("invoke: pc out of stripe: pc={}", cpu.pc));
@@ -64,14 +64,18 @@ Addr Stripe::invoke(Cpu &cpu, Memory &mem) const {
     Func func = (Func)((size_t)fn + off);
 
 #ifdef ABI_CDECL
+    // cdecl passes arguments via the stack so it would be way slower to load
+    // REG_CPU and REG_MEM on each instruction.
+    //
+    // cdecl2sysv32 saves the edi,esi to the stack, overwrites them with cpu,mem
+    // and then jumps into the middle of the stripe.
     uint64_t res = cdecl2sysv32(func, cpu, mem);
 #else
     uint64_t res = func(cpu, mem);
 #endif
 
     if ((uint32_t)res != 0) {
-      TABLE[((uint32_t)res - 1)](cpu, mem, res >> 32);
+      TABLE[(uint32_t)res - 1](cpu, mem, res >> 32);
     }
   } while (this->contains(cpu.pc));
-  return cpu.pc;
 }

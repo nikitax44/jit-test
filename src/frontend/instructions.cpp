@@ -214,6 +214,9 @@ struct Insn_SYSCALL {
     a.sub(REG_STACK, 40); // 32 bytes of shadow space
 #elif ABI_SYSV
     a.sub(REG_STACK, 8);
+#elif ABI_CDECL
+    // arguments are already on the stack.
+    // function may alter them, so they must be discarded after the call
 #endif
     // sp%16 == 0 on 64-bit systems
     a.mov(REG_ZRET, (size_t)syscall_impl);
@@ -226,6 +229,8 @@ struct Insn_SYSCALL {
 #endif
 
 #ifdef ABI_CDECL
+    // discard the arguments.
+    // edi, esi are callee-saved registers.
     a.add(REG_STACK, 4 * 2);
 #else
     a.pop(REG_CPU);
@@ -234,8 +239,8 @@ struct Insn_SYSCALL {
 
     auto end = a.newLabel();
 
-    a.test(REG_ERET, REG_ERET);
-    a.jz(end); // if tag==TAG_NOP: do nothing
+    a.test(REG_ERET, REG_ERET); // ERET is always the lower 32-bits of result.
+    a.jz(end);                  // if tag==TAG_NOP: do nothing
     // PC is already set, rax/edx:eax must persist
     a.ret();
     a.bind(end);

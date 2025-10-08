@@ -4,31 +4,29 @@
 
 void Code::run(Cpu &cpu, Memory &mem) {
   std::optional<std::shared_ptr<Stripe>> prev;
-  auto stripe = this->get(cpu.pc);
+  auto stripe = this->get_or_insert(cpu.pc);
   while (true) {
-    if (!stripe.has_value()) {
-      stripe = this->decode(cpu.pc);
-      this->insertStripe(stripe.value());
+    // update prediction
+    if (prev.has_value() && stripe != prev.value()) { // pointer equality
+      prev.value()->next = stripe;
     }
+    prev = stripe;
 
-    std::shared_ptr<Stripe> s = stripe.value();
-    if (prev.has_value() && s != prev.value()) {
-      prev.value()->next = s;
-    }
-    prev = s;
+    // run
+    stripe->invoke(cpu, mem);
 
-    cpu.pc = s->invoke(cpu, mem);
-    if (!s->next.has_value()) {
+    // cpu.pc is updated
+    if (!stripe->next.has_value()) {
       // no prediction
-      stripe = this->get(cpu.pc);
+      stripe = this->get_or_insert(cpu.pc);
       continue;
     }
 
-    auto next = s->next.value().lock();
+    auto next = stripe->next.value().lock();
 
     if (!next || !next->contains(cpu.pc)) {
       // branch mispredict or predicted stripe expired
-      stripe = this->get(cpu.pc);
+      stripe = this->get_or_insert(cpu.pc);
       continue;
     }
     stripe = next;
