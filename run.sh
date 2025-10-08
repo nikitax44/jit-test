@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 set -e
+CXX="$(which "$CXX")" # to inform ninja that 32-bit g++ and 64-bit g++ are different programs
+machine="$($CXX -dumpmachine)"
+if [[ "$machine" =~ (mingw) ]]; then
+  outfile="build/main.exe"
+  runner=wine
+else
+  outfile="build/main"
+  runner=
+fi
+
 cat >build.ninja <<EOF
 cflags = $CFLAGS -std=c++20 -O3 -g3
 asflags =
@@ -37,10 +47,10 @@ for file in $(find src/ -type f -name '*.S'); do
   objs+=("$obj")
 done
 
-echo build build/main : ld "${objs[@]}" >>build.ninja
+echo "build $outfile : ld ${objs[@]}" >>build.ninja
 
 ninja
 
 rm -f /tmp/dump_*.bin
 
-./build/main ./build/code.bin "$@"
+$runner $outfile ./build/code.bin "$@"

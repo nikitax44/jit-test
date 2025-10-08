@@ -12,4 +12,5 @@ in
     buildInputs = [
       pkgsCross.asmjit
     ];
+    WINEPATH = "${pkgsCross.asmjit}/bin";
   }
