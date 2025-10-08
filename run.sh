@@ -8,11 +8,12 @@ if [[ "$machine" =~ (mingw) ]]; then
 else
   outfile="build/main"
   runner=
+  ASFLAGS="$ASFLAGS -Wa,--noexecstack"
 fi
 
 cat >build.ninja <<EOF
 cflags = $CFLAGS -std=c++20 -O3 -g3
-asflags =
+asflags = $ASFLAGS
 rule cxx
   command = $CXX \$cflags -MMD -MF \$out.d \$in -o \$out -c
   depfile = \$out.d

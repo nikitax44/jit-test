@@ -28,7 +28,3 @@ cdecl2sysv32:
 
     ret
 #endif
-
-#if !defined(PLAT_OS_WIN32) && !defined(PLAT_OS_WIN64)
-    .section .note.GNU-stack,"",@progbits
-#endif
