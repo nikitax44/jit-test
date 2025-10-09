@@ -1,12 +1,12 @@
 require_relative "macros.rb"
 
-A = 13
-B = 14
-BUF = 16
-SIZE = 17
-CHAR_0 = 18
-TEN = 19
-LIMIT = 20
+A = Reg.new(13)
+B = Reg.new(14)
+BUF = Reg.new(16)
+SIZE = Reg.new(17)
+CHAR_0 = Reg.new(18)
+TEN = Reg.new(19)
+LIMIT = Reg.new(20)
 
 let :setup do
   movc BUF, 128

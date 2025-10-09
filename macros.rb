@@ -1,12 +1,12 @@
 # fixed-meaning registers
-ZERO = 10
-ONE = 11
-FOUR = 12
-R0 = 0
-R1 = 1
-R2 = 2
-R8 = 8
-SP = 9
+ZERO = Reg.new(10)
+ONE = Reg.new(11)
+FOUR = Reg.new(12)
+R0 = Reg.new(0)
+R1 = Reg.new(1)
+R2 = Reg.new(2)
+R8 = Reg.new(8)
+SP = Reg.new(9)
 
 
 def assert(condition, message = "Assertion failed")
