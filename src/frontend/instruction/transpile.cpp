@@ -1,6 +1,6 @@
-#include "instructions.hpp"
 #include "../../runtime/syscall.hpp"
 #include "../platform.hpp"
+#include "instructions.hpp"
 #include <asmjit/x86/x86assembler.h>
 #include <stdexcept>
 
@@ -37,9 +37,9 @@
 #endif
 
 #define VAR(var) /* size = 4 */                                                \
-  asmjit::x86::Mem(REG_CPU, sizeof(Reg) * (var), 2)
+  asmjit::x86::dword_ptr(REG_CPU, sizeof(Reg) * (var))
 #define MEM(base, offset) /* scale = 1 */                                      \
-  asmjit::x86::Mem(REG_MEM, (base), 0, sizeof(Reg) * regN + (offset))
+  asmjit::x86::dword_ptr(REG_MEM, (base), 0, sizeof(Reg) * regN + (offset))
 #define PC VAR(32)
 
 static_assert(offsetof(Cpu, pc) == 32 * sizeof(Reg),
