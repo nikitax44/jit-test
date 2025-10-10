@@ -3,6 +3,7 @@
 #include <asmjit/core/jitruntime.h>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -15,7 +16,6 @@ class Stripe {
   asmjit::JitRuntime rt;
   void *fn;
   // TODO: store weak_ptrs to two possible destination Stripes
-  std::optional<Addr> const_next;
 
 public:
   Stripe(const Stripe &) = delete;

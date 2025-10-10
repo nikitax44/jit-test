@@ -26,7 +26,6 @@ Stripe::Stripe(std::span<InsnWrap> insns, Addr start_PC, Addr end_PC)
     : PC2offset(), start_PC(start_PC), end_PC(end_PC), rt() {
   assert(end_PC < insns.size() * sizeof(InsnWrap));
   auto branch = insns[end_PC / sizeof(InsnWrap)];
-  this->const_next = branch.const_jump(end_PC);
 
   asmjit::CodeHolder code;
   code.init(rt.environment(), rt.cpuFeatures());

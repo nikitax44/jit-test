@@ -1,7 +1,6 @@
 #pragma once
 #include <asmjit/core/api-config.h>
 #include <cstdint>
-#include <optional>
 typedef uint32_t Addr;
 typedef uint32_t Reg;
 inline constexpr size_t regN = 1 << 5;
@@ -47,11 +46,6 @@ struct InsnWrap {
   inline bool is_branch() const {
     return this->opcode() == Opcode::BEQ || this->opcode() == Opcode::J;
   }
-  inline bool branch_can_fallthrough() const {
-    return this->opcode() == Opcode::BEQ;
-  }
-  std::optional<Addr> const_jump(Addr pc) const;
-  std::optional<Addr> jump_dest(Addr pc) const;
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
 
   inline Opcode opcode() const { return Opcode(bits >> 26); }
