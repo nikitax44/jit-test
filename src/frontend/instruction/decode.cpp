@@ -1,48 +1,47 @@
 #include "instructions.hpp"
 
-static void transpile_func(InsnWrap insn, asmjit::x86::Assembler &a, Addr pc) {
-  switch (OpcodeFunc(insn.bits & 0b111111)) {
-  case OpcodeFunc::MOVZ:
-  case OpcodeFunc::SUB:
-  case OpcodeFunc::ADD:
-    return Insn_D(insn.bits).transpile(a, pc);
-
-  case OpcodeFunc::SELC:
-  case OpcodeFunc::RBIT:
-    return Insn_E(insn.bits).transpile(a, pc);
-  case OpcodeFunc::SYSCALL:
-    return Insn_SYSCALL(insn.bits).transpile(a, pc);
-  default:
-    return Insn_ILLEGAL(insn.bits).transpile(a, pc);
+#define decode_func(method, ...)                                               \
+  switch (OpcodeFunc(this->bits & 0b111111)) {                                 \
+  case OpcodeFunc::MOVZ:                                                       \
+  case OpcodeFunc::SUB:                                                        \
+  case OpcodeFunc::ADD:                                                        \
+    return Insn_D(this->bits).method(__VA_ARGS__);                             \
+                                                                               \
+  case OpcodeFunc::SELC:                                                       \
+  case OpcodeFunc::RBIT:                                                       \
+    return Insn_E(this->bits).method(__VA_ARGS__);                             \
+  case OpcodeFunc::SYSCALL:                                                    \
+    return Insn_SYSCALL(this->bits).method(__VA_ARGS__);                       \
+  default:                                                                     \
+    return Insn_ILLEGAL(this->bits).method(__VA_ARGS__);                       \
   }
-}
 
-static void transpile_insn(InsnWrap insn, asmjit::x86::Assembler &a, Addr pc) {
-  switch (insn.opcode()) {
-  case Opcode::FUNC:
-    return transpile_func(insn, a, pc);
-
-  case Opcode::BEQ:
-  case Opcode::SLTI:
-    return Insn_A(insn.bits).transpile(a, pc);
-
-  case Opcode::USAT:
-  case Opcode::STP:
-  case Opcode::RORI:
-    return Insn_B(insn.bits).transpile(a, pc);
-
-  case Opcode::LD:
-  case Opcode::ST:
-    return Insn_C(insn.bits).transpile(a, pc);
-
-  case Opcode::J:
-    return Insn_J(insn.bits).transpile(a, pc);
-
-  default:
-    return Insn_ILLEGAL(insn.bits).transpile(a, pc);
+#define decode_insn(method, ...)                                               \
+  switch (this->opcode()) {                                                    \
+  case Opcode::FUNC: {                                                         \
+    decode_func(method, __VA_ARGS__);                                          \
+  } break;                                                                     \
+                                                                               \
+  case Opcode::BEQ:                                                            \
+  case Opcode::SLTI:                                                           \
+    return Insn_A(this->bits).method(__VA_ARGS__);                             \
+                                                                               \
+  case Opcode::USAT:                                                           \
+  case Opcode::STP:                                                            \
+  case Opcode::RORI:                                                           \
+    return Insn_B(this->bits).method(__VA_ARGS__);                             \
+                                                                               \
+  case Opcode::LD:                                                             \
+  case Opcode::ST:                                                             \
+    return Insn_C(this->bits).method(__VA_ARGS__);                             \
+                                                                               \
+  case Opcode::J:                                                              \
+    return Insn_J(this->bits).method(__VA_ARGS__);                             \
+                                                                               \
+  default:                                                                     \
+    return Insn_ILLEGAL(this->bits).method(__VA_ARGS__);                       \
   }
-}
 
 void InsnWrap::transpile(asmjit::x86::Assembler &a, Addr pc) const {
-  return transpile_insn(*this, a, pc);
+  decode_insn(transpile, a, pc);
 }
