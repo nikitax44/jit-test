@@ -45,3 +45,7 @@
 void InsnWrap::transpile(asmjit::x86::Assembler &a, Addr pc) const {
   decode_insn(transpile, a, pc);
 }
+
+std::optional<Addr> InsnWrap::interpret(Cpu &cpu, Memory &mem) const {
+  decode_insn(interpret, cpu, mem);
+}

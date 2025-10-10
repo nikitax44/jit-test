@@ -1,4 +1,5 @@
 #include "code.hpp"
+#include "types.hpp"
 #include <format>
 #include <memory>
 
@@ -30,6 +31,17 @@ void Code::run(Cpu &cpu, Memory &mem) {
       continue;
     }
     stripe = next;
+  }
+}
+
+void Code::run_interpret(Cpu &cpu, Memory &mem) {
+  while (true) {
+    auto res = this->insns[cpu.pc / sizeof(InsnWrap)].interpret(cpu, mem);
+    if (res.has_value()) {
+      cpu.pc = res.value();
+    } else {
+      cpu.pc += sizeof(InsnWrap);
+    }
   }
 }
 

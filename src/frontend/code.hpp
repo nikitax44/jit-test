@@ -39,4 +39,5 @@ public:
   }
 
   [[noreturn]] void run(Cpu &cpu, Memory &mem);
+  [[noreturn]] void run_interpret(Cpu &cpu, Memory &mem);
 };

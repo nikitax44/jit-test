@@ -10,6 +10,7 @@ struct Insn_A {
   inline Addr jump_dest(Addr pc) const { return pc + (((int32_t)imm16) << 2); }
   inline Opcode opcode() const { return Opcode(this->_opcode); }
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };
 
 struct Insn_B {
@@ -23,6 +24,7 @@ struct Insn_B {
         imm11(bits) {}
   inline Opcode opcode() const { return Opcode(this->_opcode); }
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };
 
 struct Insn_C {
@@ -34,6 +36,7 @@ struct Insn_C {
       : _opcode(bits >> 26), base(bits >> 21), rt(bits >> 16), offset(bits) {}
   inline Opcode opcode() const { return Opcode(this->_opcode); }
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };
 
 struct Insn_D {
@@ -49,6 +52,7 @@ struct Insn_D {
   inline Opcode opcode() const { return Opcode(this->_opcode); }
   inline OpcodeFunc func() const { return OpcodeFunc(this->_func); }
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };
 
 struct Insn_E {
@@ -62,6 +66,7 @@ struct Insn_E {
       : _opcode(bits >> 26), rd(bits >> 21), rs1(bits >> 16), rs2(bits >> 11),
         zero(bits >> 6), _func(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };
 
 struct Insn_SYSCALL {
@@ -71,6 +76,7 @@ struct Insn_SYSCALL {
   Insn_SYSCALL(uint32_t bits)
       : _opcode(bits >> 26), code(bits >> 6), _func(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };
 
 struct Insn_J {
@@ -83,10 +89,12 @@ struct Insn_J {
     return base + (((Addr)index) << 2);
   }
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };
 
 struct Insn_ILLEGAL {
   unsigned bits : 32;
   Insn_ILLEGAL(uint32_t bits) : bits(bits) {}
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 };

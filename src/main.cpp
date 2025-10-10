@@ -62,7 +62,7 @@ static union {
 };
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
+  if (argc != 2 && argc != 3) {
     std::cerr << "usage: " << argv[0] << " <code file>" << std::endl;
     return 1;
   }
@@ -78,7 +78,13 @@ int main(int argc, char **argv) {
 
   try {
     Cpu cpu = {0};
-    code.run(cpu, memory);
+    if (argc == 2) {
+      std::cerr << "transpiler" << std::endl;
+      code.run(cpu, memory);
+    } else {
+      std::cerr << "interpreter" << std::endl;
+      code.run_interpret(cpu, memory);
+    }
   } catch (exit_exception exc) {
     std::cout << "exit" << std::endl;
     return exc.status();

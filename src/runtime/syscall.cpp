@@ -52,7 +52,7 @@ extern "C" uint64_t syscall_impl(Cpu &cpu, Memory &mem) {
               << ", R30=" << std::setw(5) << regs[30]
               << ", R31=" << std::setw(5) << regs[31] << std::endl;
 
-    std::cerr << std::endl;
+    std::cerr << "  PC = " << cpu.pc << std::endl;
     break;
   case Syscall::Syscall_Exit:
     return EXIT(regs[0]);

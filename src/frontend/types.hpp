@@ -1,6 +1,7 @@
 #pragma once
 #include <asmjit/core/api-config.h>
 #include <cstdint>
+#include <optional>
 typedef uint32_t Addr;
 typedef uint32_t Reg;
 inline constexpr size_t regN = 1 << 5;
@@ -18,6 +19,13 @@ struct Cpu {
 struct Memory {
   uint8_t first;
   uint8_t memory[];
+
+  inline void write(std::size_t offset, Reg data) {
+    *reinterpret_cast<Reg *>(((char *)this) + offset) = data;
+  }
+  inline Reg read(std::size_t offset) {
+    return *reinterpret_cast<Reg *>(((char *)this) + offset);
+  }
 };
 
 enum class Opcode {
@@ -47,6 +55,7 @@ struct InsnWrap {
     return this->opcode() == Opcode::BEQ || this->opcode() == Opcode::J;
   }
   void transpile(asmjit::x86::Assembler &a, Addr pc) const;
+  std::optional<Addr> interpret(Cpu &cpu, Memory &mem) const;
 
   inline Opcode opcode() const { return Opcode(bits >> 26); }
 };
