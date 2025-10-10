@@ -87,7 +87,6 @@ void Insn_B::transpile(asmjit::x86::Assembler &a, Addr pc) const {
     a.mov(REG_EBUF, VAR(this->imm5)); // rt2
     a.mov(MEM(REG_ERET, this->imm11 + sizeof(Reg)), REG_EBUF);
   } else if (this->opcode() == Opcode::RORI) {
-    // RORI
     a.mov(REG_ERET, VAR(this->rs));
     a.ror(REG_ERET, this->imm5);
     a.mov(VAR(this->rd), REG_ERET);
@@ -123,13 +122,11 @@ void Insn_D::transpile(asmjit::x86::Assembler &a, Addr pc) const {
     a.cmovz(REG_EBUF, VAR(this->rs));
     a.mov(VAR(this->rd), REG_EBUF);
   } else if (this->func() == OpcodeFunc::SUB) {
-    // SUB
     a.mov(REG_ERET, VAR(this->rs));
     a.mov(REG_EBUF, VAR(this->rt));
     a.sub(REG_ERET, REG_EBUF);
     a.mov(VAR(this->rd), REG_ERET);
   } else if (this->func() == OpcodeFunc::ADD) {
-    // ADD
     a.mov(REG_ERET, VAR(this->rs));
     a.mov(REG_EBUF, VAR(this->rt));
     a.add(REG_ERET, REG_EBUF);
@@ -144,32 +141,38 @@ void Insn_E::transpile(asmjit::x86::Assembler &a, Addr pc) const { a.int3(); }
 void Insn_SYSCALL::transpile(asmjit::x86::Assembler &a, Addr pc) const {
   a.mov(PC, pc); // cpu.pc = pc
 
+  // ABI_CDECL: push syscall_impl arguments
+  // ABI_SYSV:       preserve caller-saved registers
+  // ABI_FASTCALL64: preserve caller-saved registers
   a.push(REG_MEM);
   a.push(REG_CPU);
-  // sp%16 == 8 on 64-bit systems
+
+  // align the stack to 16 bytes(only for 64-bit)
 #ifdef ABI_FASTCALL64
-  a.sub(REG_STACK, 40); // 32 bytes of shadow space
+  a.sub(REG_STACK, 8 + 32); // alignment + 32 bytes of shadow space
 #elif ABI_SYSV
   a.sub(REG_STACK, 8);
-#elif ABI_CDECL
+#endif
+
   // arguments are already on the stack.
   // function may alter them, so they must be discarded after the call
-#endif
-  // sp%16 == 0 on 64-bit systems
+
+  // invoke syscall
   a.mov(REG_ZRET, (size_t)syscall_impl);
   a.call(REG_ZRET);
 
 #ifdef ABI_FASTCALL64
-  a.add(REG_STACK, 40);
+  a.add(REG_STACK, 8 + 32);
 #elif ABI_SYSV
   a.add(REG_STACK, 8);
 #endif
 
 #ifdef ABI_CDECL
   // discard the arguments.
-  // edi, esi are callee-saved registers.
+  // REG_MEM and REG_CPU are callee-saved registers.
   a.add(REG_STACK, 4 * 2);
 #else
+  // restore registers
   a.pop(REG_CPU);
   a.pop(REG_MEM);
 #endif
